@@ -16,8 +16,12 @@ concurrency:
 
 jobs:
   linux-build-test-smoke:
-    name: Ubuntu 24.04 — compile, unit tests, CLI smoke
-    runs-on: ubuntu-24.04
+    name: Linux — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
