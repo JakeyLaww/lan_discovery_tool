@@ -1,6 +1,8 @@
 #include <iostream>
 #include <cassert>
 #include <cstring>
+#include "mdns/DnsProtocol.hpp"
+#include "mdns/DnsTypes.hpp"
 #include "mdns/Parser.hpp"
 #include "mdns/QueryBuilder.hpp"
 #include "MDNSDefinitions.hpp"
@@ -8,7 +10,7 @@
 void test_parse_basic_header() {
     std::cout << "Testing parse_basic_header..." << std::endl;
 
-    // Construct a minimal DNS header: ID=0x1234, Flags=0x8000, Questions=1, Answers=2
+    // Construct a minimal DNS header: ID=0x1234, Flags=response, Questions=1, Answers=2
     uint8_t buffer[12] = {
         0x12, 0x34,  // Transaction ID = 0x1234
         0x80, 0x00,  // Flags = 0x8000 (response)
@@ -19,7 +21,7 @@ void test_parse_basic_header() {
     };
 
     auto header = parse_basic_header(buffer, sizeof(buffer));
-    if (header.transaction_id != 0x1234 || header.flags != 0x8000 ||
+    if (header.transaction_id != 0x1234 || header.flags != DnsProtocol::kFlagsResponse ||
         header.questions != 1 || header.answer_rrs != 2 ||
         header.authority_rrs != 0 || header.additional_rrs != 0) {
         throw std::runtime_error("parse_basic_header mismatch");
@@ -97,7 +99,7 @@ void test_parse_questions() {
     buffer[4] = 0x00; buffer[5] = 0x01;   // Questions = 1
     buffer[6] = 0x00; buffer[7] = 0x00;   // Answers = 0
 
-    // Question at offset 12: "test.local" type=1 (A), class=1 (IN)
+    // Question at offset 12: "test.local" type=A, class=IN
     size_t pos = 12;
     buffer[pos++] = 4;
     memcpy(buffer + pos, "test", 4);
@@ -112,8 +114,8 @@ void test_parse_questions() {
     auto [questions, offset] = parse_questions(buffer, sizeof(buffer), 12, 1);
     assert(questions.size() == 1);
     assert(questions[0].name == "test.local");
-    assert(questions[0].type == 1);
-    assert(questions[0].class_code == 1);
+    assert(questions[0].type == DnsType::A);
+    assert(questions[0].class_code == DnsClass::IN);
 
     std::cout << "  ✓ parse_questions passed" << std::endl;
 }
@@ -125,7 +127,7 @@ void test_parse_full_message() {
     uint8_t buffer[100];
     memset(buffer, 0, sizeof(buffer));
 
-    // Header: ID=0, Flags=0x8400 (response), Questions=1, Answers=1
+    // Header: ID=0, Flags=mDNS response, Questions=1, Answers=1
     buffer[0] = 0x00; buffer[1] = 0x00;   // ID
     buffer[2] = 0x84; buffer[3] = 0x00;   // Flags = 0x8400 (response)
     buffer[4] = 0x00; buffer[5] = 0x01;   // Questions = 1
@@ -165,14 +167,14 @@ void test_parse_full_message() {
 
     auto msg = parse_full_message(buffer, pos);
     assert(msg.header.transaction_id == 0);
-    assert(msg.header.flags == 0x8400);
+    assert(msg.header.flags == DnsProtocol::kFlagsMdnsResponse);
     assert(msg.header.questions == 1);
     assert(msg.header.answer_rrs == 1);
     assert(msg.questions.size() == 1);
     assert(msg.questions[0].name == "test.local");
     assert(msg.answers.size() == 1);
     assert(msg.answers[0].name == "test.local");
-    assert(msg.answers[0].type == 1);  // A record
+    assert(msg.answers[0].type == DnsType::A);
     assert(msg.answers[0].ttl == 120);
     assert(msg.answers[0].rdata.size() == 4);
     assert(msg.answers[0].rdata_str() == "192.168.1.1");
@@ -186,7 +188,7 @@ void test_rdata_formatters() {
     // Test A record formatter
     {
         MdnsResourceRecord rr;
-        rr.type = 1;  // A
+        rr.type = DnsType::A;
         rr.rdata = {192, 168, 1, 100};
         assert(rr.rdata_str() == "192.168.1.100");
     }
@@ -198,7 +200,7 @@ void test_rdata_formatters() {
             0x04, '_', 't', 'c', 'p', 0x00
         };
         MdnsResourceRecord rr;
-        rr.type = 12;  // PTR
+        rr.type = DnsType::PTR;
         rr.rdata.assign(ptr_data, ptr_data + sizeof(ptr_data));
         std::string result = rr.rdata_str();
         assert(result.find("itunes") != std::string::npos);
@@ -211,7 +213,7 @@ void test_query_builder_question_count() {
     std::cout << "Testing QueryBuilder question count..." << std::endl;
 
     QueryBuilder qb(0xABCD);
-    qb.add_question("_http._tcp.local", 12, 1);
+    qb.add_question("_http._tcp.local", DnsType::PTR, DnsClass::IN);
     auto query = qb.build();
 
     assert(query.size() >= 12);
@@ -221,8 +223,8 @@ void test_query_builder_question_count() {
     assert(query[5] == 0x01);
 
     QueryBuilder qb2(0);
-    qb2.add_question("_services._dns-sd._udp.local", 12, 1);
-    qb2.add_question("test.local", 1, 1);
+    qb2.add_question("_services._dns-sd._udp.local", DnsType::PTR, DnsClass::IN);
+    qb2.add_question("test.local", DnsType::A, DnsClass::IN);
     auto query2 = qb2.build();
     assert(query2[4] == 0x00);
     assert(query2[5] == 0x02);

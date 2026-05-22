@@ -2,6 +2,7 @@
 
 #include "Logger.hpp"
 #include "discovery/DiscoveryTypes.hpp"
+#include "mdns/DnsProtocol.hpp"
 #include "mdns/Parser.hpp"
 #include <memory>
 #include <string>
@@ -10,7 +11,7 @@
 
 class MdnsPacketInterpreter {
 public:
-    static constexpr uint16_t kDnsQrResponse = 0x8000;
+    static constexpr uint16_t kDnsQrResponse = DnsProtocol::kFlagsResponse;
 
     explicit MdnsPacketInterpreter(std::shared_ptr<Logger> logger);
 

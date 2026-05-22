@@ -1,9 +1,10 @@
 #include "mdns/QueryBuilder.hpp"
+#include "mdns/DnsProtocol.hpp"
 #include <cstring>
 
 QueryBuilder::QueryBuilder(uint16_t tid) : transaction_id(tid) {
     buffer.reserve(256);
-    for (int i = 0; i < 12; ++i) {
+    for (size_t i = 0; i < DnsProtocol::kHeaderSize; ++i) {
         buffer.push_back(0);
     }
 }
@@ -33,7 +34,7 @@ QueryBuilder& QueryBuilder::add_question(const std::string& name, uint16_t type,
         pos = dot_pos + 1;
     }
 
-    buffer.push_back(0x00);
+    buffer.push_back(DnsProtocol::kQnameTerminator);
 
     buffer.push_back(static_cast<uint8_t>(type >> 8));
     buffer.push_back(static_cast<uint8_t>(type & 0xFF));
@@ -57,7 +58,7 @@ std::vector<uint8_t> QueryBuilder::build() const {
     result[4] = static_cast<uint8_t>(question_count_ >> 8);
     result[5] = static_cast<uint8_t>(question_count_ & 0xFF);
 
-    for (int i = 6; i < 12; ++i) {
+    for (size_t i = 6; i < DnsProtocol::kHeaderSize; ++i) {
         result[i] = 0x00;
     }
 

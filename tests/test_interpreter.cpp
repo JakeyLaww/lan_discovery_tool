@@ -5,15 +5,16 @@
 #include "core/MdnsPacketInterpreter.hpp"
 #include "discovery/DiscoveryTypes.hpp"
 #include "log/ThreadSafeLogger.hpp"
+#include "mdns/DnsProtocol.hpp"
 #include "mdns/DnsTypes.hpp"
 
 void test_is_dns_response() {
     MdnsParsedMessage query;
-    query.header.flags = 0x0000;
+    query.header.flags = DnsProtocol::kFlagsQuery;
     assert(!MdnsPacketInterpreter::is_dns_response(query));
 
     MdnsParsedMessage response;
-    response.header.flags = 0x8400;
+    response.header.flags = DnsProtocol::kFlagsMdnsResponse;
     assert(MdnsPacketInterpreter::is_dns_response(response));
 
     std::cout << "  ✓ is_dns_response passed" << std::endl;

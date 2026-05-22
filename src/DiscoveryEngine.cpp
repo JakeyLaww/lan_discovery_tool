@@ -1,5 +1,6 @@
 #include "DiscoveryEngine.hpp"
 #include "MDNSDefinitions.hpp"
+#include "mdns/DnsTypes.hpp"
 #include "mdns/QueryBuilder.hpp"
 #include "util/InterfaceInfo.hpp"
 #include <chrono>
@@ -51,7 +52,7 @@ bool DiscoveryEngine::start(const std::string& interface_name) {
 
 void DiscoveryEngine::broadcast_query() {
     QueryBuilder qb(0);
-    qb.add_question("_services._dns-sd._udp.local", 12, 1);
+    qb.add_question("_services._dns-sd._udp.local", DnsType::PTR, DnsClass::IN);
     auto query = qb.build();
 
     try {

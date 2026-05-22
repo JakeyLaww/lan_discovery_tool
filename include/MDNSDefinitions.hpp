@@ -1,4 +1,5 @@
 #pragma once
+#include "mdns/DnsProtocol.hpp"
 #include <cstdint>
 #include <cstddef>
 #include <string>
@@ -38,7 +39,7 @@ namespace MDNS {
      * @return DnsHeaderHost Parsed header with host-order numeric fields.
      */
     inline DnsHeaderHost parse_dns_header(const uint8_t* buf, size_t len) {
-        if (len < 12) throw std::invalid_argument("DNS buffer too small for header");
+        if (len < DnsProtocol::kHeaderSize) throw std::invalid_argument("DNS buffer too small for header");
         DnsHeaderHost h;
         h.transaction_id = read_u16_be(buf + 0);
         h.flags = read_u16_be(buf + 2);
@@ -72,18 +73,18 @@ namespace MDNS {
             }
 
             uint8_t label_len = buf[pos];
-            if (label_len == 0) {
+            if (label_len == DnsProtocol::kQnameTerminator) {
                 if (!jumped) {
                     consumed = pos + 1;
                 }
                 break;
             }
 
-            if ((label_len & 0xc0) == 0xc0) {
+            if ((label_len & DnsProtocol::kQnamePointerPrefix) == DnsProtocol::kQnamePointerPrefix) {
                 if (pos + 1 >= len) {
                     throw std::invalid_argument("Compressed QNAME pointer truncated");
                 }
-                uint16_t pointer = ((static_cast<uint16_t>(label_len & 0x3f) << 8) | buf[pos + 1]);
+                uint16_t pointer = ((static_cast<uint16_t>(label_len & DnsProtocol::kQnamePointerOffsetMask) << 8) | buf[pos + 1]);
                 if (pointer >= len) {
                     throw std::invalid_argument("Compressed QNAME pointer out of bounds");
                 }
@@ -95,7 +96,7 @@ namespace MDNS {
                 continue;
             }
 
-            if (label_len & 0xc0) {
+            if (label_len & DnsProtocol::kQnamePointerPrefix) {
                 throw std::invalid_argument("Invalid QNAME label length");
             }
             if (pos + 1 + label_len > len) {
