@@ -1,8 +1,10 @@
 #include "DiscoveryEngine.hpp"
 #include "MDNSDefinitions.hpp"
 #include "mdns/QueryBuilder.hpp"
+#include "util/InterfaceInfo.hpp"
 #include <chrono>
 #include <cerrno>
+#include <sstream>
 #include <system_error>
 
 DiscoveryEngine::DiscoveryEngine(std::shared_ptr<Logger> logger_)
@@ -11,15 +13,39 @@ DiscoveryEngine::DiscoveryEngine(std::shared_ptr<Logger> logger_)
       packet_interpreter(std::make_unique<MdnsPacketInterpreter>(logger)),
       running(false) {}
 
-bool DiscoveryEngine::start() {
+bool DiscoveryEngine::start(const std::string& interface_name) {
+    std::string iface_ip;
+    if (!interface_name.empty()) {
+        iface_ip = ipv4_for_interface(interface_name);
+        if (iface_ip.empty()) {
+            logger->error("Interface not found or has no IPv4: " + interface_name);
+            return false;
+        }
+    }
+
     try {
-        socket->bind_multicast(MDNS::PORT, MDNS::MULTICAST_GROUP);
+        socket->bind_multicast(MDNS::PORT, MDNS::MULTICAST_GROUP, iface_ip);
     } catch (const std::exception& ex) {
         logger->error(std::string("Failed to bind to mDNS multicast group: ") + ex.what());
         return false;
     }
-    logger->info(std::string("Engine active. Bound to ") + MDNS::MULTICAST_GROUP + ":" +
-                  std::to_string(MDNS::PORT));
+
+    std::ostringstream bound;
+    bound << "Engine active. mDNS " << MDNS::MULTICAST_GROUP << ":" << MDNS::PORT;
+    if (!iface_ip.empty()) {
+        bound << " on interface " << interface_name << " (" << iface_ip << ")";
+    }
+
+    const auto ifaces = list_ipv4_interfaces();
+    if (ifaces.empty()) {
+        logger->warn("No non-loopback IPv4 interfaces detected.");
+    } else {
+        bound << " | local:";
+        for (const auto& iface : ifaces) {
+            bound << " " << iface.name << "=" << iface.ipv4;
+        }
+    }
+    logger->info(bound.str());
     return true;
 }
 
@@ -37,20 +63,16 @@ void DiscoveryEngine::broadcast_query() {
     }
 }
 
-void DiscoveryEngine::stop() {
-    running.store(false);
-}
-
-bool DiscoveryEngine::is_running() const noexcept {
-    return running.load();
-}
-
 void DiscoveryEngine::set_event_sink(EventSinkPtr s) {
     sink = std::move(s);
 }
 
 void DiscoveryEngine::set_verbose(bool verbose) {
     packet_interpreter->set_verbose(verbose);
+}
+
+void DiscoveryEngine::set_interface(const std::string& interface_name) {
+    interface_name_ = interface_name;
 }
 
 void DiscoveryEngine::receiver_loop() {
@@ -116,12 +138,7 @@ void DiscoveryEngine::worker_loop() {
 void DiscoveryEngine::poller_loop(uint32_t poll_interval_ms) {
     std::chrono::milliseconds interval(poll_interval_ms);
     while (running.load()) {
-        try {
-            broadcast_query();
-        } catch (const std::exception& ex) {
-            logger->error(std::string("Poller failed to broadcast query: ") + ex.what());
-            error_occurred_.store(true);
-        }
+        broadcast_query();
         std::this_thread::sleep_for(interval);
         if (!running.load()) break;
     }
@@ -133,7 +150,7 @@ bool DiscoveryEngine::run(uint32_t poll_interval_ms, std::function<bool()> shutd
         return false;
     }
 
-    if (!start()) {
+    if (!start(interface_name_)) {
         return false;
     }
 
@@ -141,8 +158,6 @@ bool DiscoveryEngine::run(uint32_t poll_interval_ms, std::function<bool()> shutd
     dropped_packets_ = 0;
     socket->set_receive_timeout(1000);
     running.store(true);
-
-    logger->info("Starting receiver, worker, and poller threads...");
 
     bool setup_ok = true;
     try {

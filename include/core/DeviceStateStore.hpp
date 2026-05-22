@@ -17,8 +17,6 @@ public:
      */
     bool update_and_changed(const DiscoveryEvent& ev);
 
-    void clear();
-
 private:
     std::string make_key(const std::string& src_ip, const ResourceRecordView& rec) const;
 

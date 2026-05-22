@@ -1,6 +1,8 @@
 #include "discovery/DiscoveryTypes.hpp"
 #include <sstream>
 
+namespace {
+
 std::string json_escape(const std::string& s) {
     std::ostringstream oss;
     for (char c : s) {
@@ -15,6 +17,8 @@ std::string json_escape(const std::string& s) {
     }
     return oss.str();
 }
+
+} // namespace
 
 std::string to_json(const DiscoveryEvent& ev) {
     std::ostringstream oss;

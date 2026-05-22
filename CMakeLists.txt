@@ -37,6 +37,7 @@ add_executable(scanner
     src/main.cpp
     src/NetworkSocket.cpp
     src/DiscoveryEngine.cpp
+    src/util/InterfaceInfo.cpp
     src/event_sink/StdoutEventSink.cpp
     src/event_sink/ChangeFilteredEventSink.cpp
 )

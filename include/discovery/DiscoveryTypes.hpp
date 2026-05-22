@@ -16,6 +16,4 @@ struct DiscoveryEvent {
     std::vector<ResourceRecordView> records;
 };
 
-std::string json_escape(const std::string& s);
-
 std::string to_json(const DiscoveryEvent& ev);

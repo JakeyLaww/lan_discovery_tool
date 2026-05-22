@@ -39,7 +39,8 @@ void NetworkSocket::cleanup_and_throw(const char* err_msg) {
  * @param port Port number in host byte order to bind to.
  * @param multicast_ip Multicast IPv4 address (dotted decimal).
  */
-void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_ip) {
+void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_ip,
+                                 const std::string& interface_ipv4) {
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_fd < 0) {
         THROW_ERRNO("socket()");
@@ -56,12 +57,12 @@ void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_i
     }
 #endif
 
-    std::memset(&local_addr, 0, sizeof(local_addr));
-    local_addr.sin_family = AF_INET;
-    local_addr.sin_port = htons(port);
-    local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    struct sockaddr_in bind_addr{};
+    bind_addr.sin_family = AF_INET;
+    bind_addr.sin_port = htons(port);
+    bind_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(sock_fd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
+    if (bind(sock_fd, reinterpret_cast<struct sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
         cleanup_and_throw("bind()");
     }
 
@@ -74,9 +75,21 @@ void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_i
         throw std::invalid_argument("Invalid multicast IP: " + multicast_ip);
     }
 
+    struct in_addr iface_addr;
+    iface_addr.s_addr = htonl(INADDR_ANY);
+    if (!interface_ipv4.empty()) {
+        if (inet_pton(AF_INET, interface_ipv4.c_str(), &iface_addr) != 1) {
+            throw std::invalid_argument("Invalid interface IPv4: " + interface_ipv4);
+        }
+        if (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_IF, &iface_addr, sizeof(iface_addr)) < 0) {
+            cleanup_and_throw("setsockopt(IP_MULTICAST_IF)");
+        }
+    }
+
+    struct ip_mreq mreq{};
     mreq.imr_multiaddr = mcast;
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
-    if (setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) < 0) {
+    mreq.imr_interface = iface_addr;
+    if (setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         cleanup_and_throw("setsockopt(IP_ADD_MEMBERSHIP)");
     }
 

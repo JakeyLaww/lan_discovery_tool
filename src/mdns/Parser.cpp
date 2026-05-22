@@ -2,9 +2,6 @@
 #include "mdns/MdnsMessageDecoder.hpp"
 #include "mdns/RDataFormatter.hpp"
 #include "MDNSDefinitions.hpp"
-#include <arpa/inet.h>
-#include <sstream>
-#include <iomanip>
 
 MdnsHeaderInfo parse_basic_header(const uint8_t* buf, size_t len) {
     auto h = MDNS::parse_dns_header(buf, len);

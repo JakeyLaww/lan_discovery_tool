@@ -7,7 +7,6 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <vector>
 #include <cstdint>
 #include <thread>
 #include <mutex>
@@ -23,15 +22,15 @@ public:
 
     explicit DiscoveryEngine(std::shared_ptr<Logger> logger);
 
-    bool start();
-    void broadcast_query();
     void set_event_sink(EventSinkPtr s);
     void set_verbose(bool verbose);
-    void stop();
-    bool is_running() const noexcept;
+    void set_interface(const std::string& interface_name);
     bool run(uint32_t poll_interval_ms = 5000, std::function<bool()> shutdown_requested = nullptr);
 
 private:
+    bool start(const std::string& interface_name);
+    void broadcast_query();
+    std::string interface_name_;
     std::unique_ptr<NetworkSocket> socket;
     std::shared_ptr<Logger> logger;
     std::unique_ptr<MdnsPacketInterpreter> packet_interpreter;

@@ -13,14 +13,10 @@ bool DeviceStateStore::update_and_changed(const DiscoveryEvent& ev) {
     for (const auto& rec : ev.records) {
         const std::string key = make_key(ev.src_ip, rec);
         const auto it = last_seen_.find(key);
-        if (it == last_seen_.end() || it->second != rec.rdata_text) {
-            last_seen_[key] = rec.rdata_text;
+        if (it == last_seen_.end()) {
+            last_seen_.emplace(key, rec.rdata_text);
             changed = true;
         }
     }
     return changed;
-}
-
-void DeviceStateStore::clear() {
-    last_seen_.clear();
 }

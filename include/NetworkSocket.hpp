@@ -16,8 +16,6 @@
 class NetworkSocket {
 private:
     int sock_fd;
-    struct sockaddr_in local_addr;
-    struct ip_mreq mreq;
 
     /**
      * @brief Helper to safely close socket and clean up on error.
@@ -41,13 +39,9 @@ public:
     NetworkSocket(const NetworkSocket&) = delete;
     NetworkSocket& operator=(const NetworkSocket&) = delete;
 
-    /**
-     * @brief Bind the socket to the given multicast group and port.
-     *
-     * @param port UDP port to bind to (host byte order).
-     * @param multicast_ip IPv4 multicast address (dotted decimal).
-     */
-    void bind_multicast(uint16_t port, const std::string& multicast_ip);
+    /** @param interface_ipv4 Optional local IPv4 for multicast egress (empty = INADDR_ANY). */
+    void bind_multicast(uint16_t port, const std::string& multicast_ip,
+                        const std::string& interface_ipv4 = "");
 
     /**
      * @brief Send a UDP packet to the specified destination.
