@@ -52,9 +52,7 @@ namespace MDNS {
     /**
      * @brief Parse a domain name (QNAME) from a DNS message.
      *
-     * This function decodes uncompressed QNAMEs and returns the dotted name
-     * and the buffer offset after the name. Compression pointers are not
-     * supported by this lightweight helper.
+     * Decodes QNAMEs including RFC 1035 compression pointers.
      *
      * @param buf Pointer to the DNS message buffer.
      * @param len Length of the buffer in bytes.
@@ -64,23 +62,58 @@ namespace MDNS {
     inline std::pair<std::string, size_t> parse_qname(const uint8_t* buf, size_t len, size_t offset) {
         std::string name;
         size_t pos = offset;
-        bool first = true;
+        size_t consumed = offset;
+        bool jumped = false;
+        size_t loop_count = 0;
+
         while (pos < len) {
+            if (++loop_count > len) {
+                throw std::invalid_argument("QNAME pointer loop detected");
+            }
+
             uint8_t label_len = buf[pos];
             if (label_len == 0) {
-                pos += 1; // null terminator
+                if (!jumped) {
+                    consumed = pos + 1;
+                }
                 break;
             }
-            if (label_len & 0xc0) {
-                // Compression not supported in this helper
-                throw std::invalid_argument("Compressed QNAME not supported by parse_qname");
+
+            if ((label_len & 0xc0) == 0xc0) {
+                if (pos + 1 >= len) {
+                    throw std::invalid_argument("Compressed QNAME pointer truncated");
+                }
+                uint16_t pointer = ((static_cast<uint16_t>(label_len & 0x3f) << 8) | buf[pos + 1]);
+                if (pointer >= len) {
+                    throw std::invalid_argument("Compressed QNAME pointer out of bounds");
+                }
+                if (!jumped) {
+                    consumed = pos + 2;
+                }
+                pos = pointer;
+                jumped = true;
+                continue;
             }
-            if (pos + 1 + label_len > len) throw std::invalid_argument("QNAME runs past buffer");
-            if (!first) name.push_back('.');
+
+            if (label_len & 0xc0) {
+                throw std::invalid_argument("Invalid QNAME label length");
+            }
+            if (pos + 1 + label_len > len) {
+                throw std::invalid_argument("QNAME runs past buffer");
+            }
+            if (!name.empty()) {
+                name.push_back('.');
+            }
             name.append(reinterpret_cast<const char*>(buf + pos + 1), label_len);
-            first = false;
             pos += 1 + label_len;
+            if (!jumped) {
+                consumed = pos;
+            }
         }
-        return {name, pos};
+
+        if (pos >= len) {
+            throw std::invalid_argument("QNAME not terminated before end of buffer");
+        }
+        return {name, consumed};
     }
 }

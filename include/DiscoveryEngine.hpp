@@ -1,47 +1,53 @@
 #pragma once
+#include "Logger.hpp"
 #include "NetworkSocket.hpp"
+#include "EventSink.hpp"
+#include "core/MdnsPacketInterpreter.hpp"
+#include <atomic>
+#include <functional>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
+#include <cstdint>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <deque>
 
 /**
  * @brief High-level discovery engine that broadcasts mDNS queries and listens for responses.
  */
 class DiscoveryEngine {
+public:
+    static constexpr size_t kMaxPacketQueueSize = 256;
+
+    explicit DiscoveryEngine(std::shared_ptr<Logger> logger);
+
+    bool start();
+    void broadcast_query();
+    void set_event_sink(EventSinkPtr s);
+    void set_verbose(bool verbose);
+    void stop();
+    bool is_running() const noexcept;
+    bool run(uint32_t poll_interval_ms = 5000, std::function<bool()> shutdown_requested = nullptr);
+
 private:
     std::unique_ptr<NetworkSocket> socket;
+    std::shared_ptr<Logger> logger;
+    std::unique_ptr<MdnsPacketInterpreter> packet_interpreter;
+    std::atomic<bool> running{false};
+    std::atomic<bool> error_occurred_{false};
+    EventSinkPtr sink;
 
-    /**
-     * @brief Utility to print a hex dump of received data.
-     *
-     * @param desc Short description to include in the dump header.
-     * @param data Byte vector to display.
-     */
-    void hex_dump(const std::string& desc, const std::vector<uint8_t>& data);
+    std::thread receiver_thread;
+    std::thread worker_thread;
+    std::thread poller_thread;
+    std::mutex queue_mutex;
+    std::condition_variable queue_cv;
+    std::deque<std::pair<std::vector<uint8_t>, std::string>> packet_queue;
+    size_t dropped_packets_{0};
 
-public:
-    /**
-     * @brief Construct a new DiscoveryEngine instance.
-     */
-    DiscoveryEngine();
-
-    /**
-     * @brief Start the engine by binding sockets and preparing to send/receive.
-     *
-     * @return true if initialization succeeded; false otherwise.
-     */
-    bool start();
-
-    /**
-     * @brief Send a service discovery mDNS query.
-     */
-    void broadcast_query();
-
-    /**
-     * @brief Enter the receive loop and parse incoming responses.
-     *
-     * This method currently runs until an error occurs; higher-level code
-     * should arrange for process termination or a future stop() hook.
-     */
-    void listen_and_parse();
+    void receiver_loop();
+    void worker_loop();
+    void poller_loop(uint32_t poll_interval_ms);
 };

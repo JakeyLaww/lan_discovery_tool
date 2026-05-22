@@ -19,6 +19,13 @@ private:
     struct sockaddr_in local_addr;
     struct ip_mreq mreq;
 
+    /**
+     * @brief Helper to safely close socket and clean up on error.
+     *
+     * @param err_msg Error message for exception.
+     */
+    void cleanup_and_throw(const char* err_msg);
+
 public:
     /**
      * @brief Construct a new NetworkSocket object.

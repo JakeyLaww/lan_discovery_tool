@@ -4,10 +4,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <iostream>
 
-// Helper macro to throw system_error with errno message
-#define THROW_ERRNO(msg) throw std::system_error(errno, std::generic_category(), msg " : " + std::string(std::strerror(errno)))
+#define THROW_ERRNO(msg) throw std::system_error(errno, std::generic_category(), std::string(msg) + " : " + std::string(std::strerror(errno)))
 
 /**
  * @brief Construct a new NetworkSocket object.
@@ -25,6 +23,17 @@ NetworkSocket::~NetworkSocket() {
 }
 
 /**
+ * @brief Helper to safely close socket and throw on error.
+ */
+void NetworkSocket::cleanup_and_throw(const char* err_msg) {
+    int err = errno;
+    close(sock_fd);
+    sock_fd = -1;
+    errno = err;
+    THROW_ERRNO(err_msg);
+}
+
+/**
  * @brief Bind the socket to a multicast group and port.
  *
  * @param port Port number in host byte order to bind to.
@@ -38,12 +47,14 @@ void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_i
 
     int reuse = 1;
     if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse, sizeof(reuse)) < 0) {
-        int err = errno;
-        close(sock_fd);
-        sock_fd = -1;
-        errno = err;
-        THROW_ERRNO("setsockopt(SO_REUSEADDR)");
+        cleanup_and_throw("setsockopt(SO_REUSEADDR)");
     }
+
+#ifdef SO_REUSEPORT
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, (char *)&reuse, sizeof(reuse)) < 0) {
+        cleanup_and_throw("setsockopt(SO_REUSEPORT)");
+    }
+#endif
 
     std::memset(&local_addr, 0, sizeof(local_addr));
     local_addr.sin_family = AF_INET;
@@ -51,11 +62,7 @@ void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_i
     local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(sock_fd, (struct sockaddr*)&local_addr, sizeof(local_addr)) < 0) {
-        int err = errno;
-        close(sock_fd);
-        sock_fd = -1;
-        errno = err;
-        THROW_ERRNO("bind()");
+        cleanup_and_throw("bind()");
     }
 
     struct in_addr mcast;
@@ -70,11 +77,12 @@ void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_i
     mreq.imr_multiaddr = mcast;
     mreq.imr_interface.s_addr = htonl(INADDR_ANY);
     if (setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) < 0) {
-        int err = errno;
-        close(sock_fd);
-        sock_fd = -1;
-        errno = err;
-        THROW_ERRNO("setsockopt(IP_ADD_MEMBERSHIP)");
+        cleanup_and_throw("setsockopt(IP_ADD_MEMBERSHIP)");
+    }
+
+    int loop = 0;
+    if (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop)) < 0) {
+        cleanup_and_throw("setsockopt(IP_MULTICAST_LOOP)");
     }
 }
 
@@ -87,7 +95,9 @@ void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_i
  * @return ssize_t Number of bytes sent.
  */
 ssize_t NetworkSocket::send_packet(const std::vector<uint8_t>& data, const std::string& dest_ip, uint16_t dest_port) {
-    if (sock_fd < 0) THROW_ERRNO("send_packet: socket not initialized");
+    if (sock_fd < 0) {
+        throw std::system_error(ENOTSOCK, std::generic_category(), "send_packet: socket not initialized");
+    }
 
     struct sockaddr_in dest_addr;
     std::memset(&dest_addr, 0, sizeof(dest_addr));
@@ -113,13 +123,15 @@ ssize_t NetworkSocket::send_packet(const std::vector<uint8_t>& data, const std::
  * @return ssize_t Number of bytes received.
  */
 ssize_t NetworkSocket::receive_packet(std::vector<uint8_t>& buffer, std::string& sender_ip) {
-    if (sock_fd < 0) THROW_ERRNO("receive_packet: socket not initialized");
+    if (sock_fd < 0) {
+        throw std::system_error(ENOTSOCK, std::generic_category(), "receive_packet: socket not initialized");
+    }
     
     struct sockaddr_in sender_addr;
     socklen_t sender_len = sizeof(sender_addr);
 
-    // Resize buffer to a reasonable safe default (typical UDP payloads)
-    buffer.resize(2048);
+    // Resize buffer to maximum UDP payload size to avoid truncation
+    buffer.resize(65535);
 
     ssize_t bytes_read = recvfrom(sock_fd, buffer.data(), buffer.size(), 0,
                                   (struct sockaddr*)&sender_addr, &sender_len);
@@ -148,7 +160,9 @@ ssize_t NetworkSocket::receive_packet(std::vector<uint8_t>& buffer, std::string&
  * @param milliseconds Timeout in milliseconds; 0 disables timeout (blocking).
  */
 void NetworkSocket::set_receive_timeout(uint32_t milliseconds) {
-    if (sock_fd < 0) THROW_ERRNO("set_receive_timeout: socket not initialized");
+    if (sock_fd < 0) {
+        throw std::system_error(ENOTSOCK, std::generic_category(), "set_receive_timeout: socket not initialized");
+    }
     struct timeval tv;
     tv.tv_sec = milliseconds / 1000;
     tv.tv_usec = (milliseconds % 1000) * 1000;
