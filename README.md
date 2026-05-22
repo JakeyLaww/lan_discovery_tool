@@ -49,10 +49,3 @@ On startup the scanner logs **local IPv4 interfaces** for diagnostics.
 ```bash
 ctest --test-dir build
 ```
-
-Unit tests use synthetic DNS/mDNS packets only (no network). CI runs the same tests on every push and PR; it does not perform live LAN discovery—GitHub-hosted runners are not on your Wi‑Fi multicast segment.
-
-## CI
-
-- **CI** (`.github/workflows/ci.yml`): clean build via `./scripts/build.sh --clean`, `ctest`, and `./build/scanner --help` smoke test
-- **CodeQL** (`.github/workflows/codeql-analysis.yml`): static security analysis for C++
