@@ -1,6 +1,7 @@
 # LAN Discovery Tool
 
-[![CI](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/ci.yml/badge.svg)](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/ci.yml)
+[![Build and Test](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/build-and-test.yml)
+[![CodeQL Analysis](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/codeql-analysis.yml)
 
 `mDNS scanner`:
 
@@ -49,3 +50,12 @@ On startup the scanner logs **local IPv4 interfaces** for diagnostics.
 ```bash
 ctest --test-dir build
 ```
+
+Unit tests use synthetic DNS/mDNS packets only (no network). CI does not perform live LAN discovery.
+
+## Continuous integration
+
+| Workflow | File | What it runs |
+|----------|------|----------------|
+| **Build and Test** | [`.github/workflows/build-and-test.yml`](.github/workflows/build-and-test.yml) | Clean build, `ctest`, `./build/scanner --help` |
+| **CodeQL Analysis** | [`.github/workflows/codeql-analysis.yml`](.github/workflows/codeql-analysis.yml) | Static security analysis for C++ |

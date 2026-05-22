@@ -1,0 +1,32 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-build-test-smoke:
+    name: Ubuntu 24.04 — compile, unit tests, CLI smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install CMake and G++
+        run: sudo apt-get update && sudo apt-get install -y cmake g++
+
+      - name: Clean build, run ctest (Parser + Interpreter)
+        run: ./scripts/build.sh --clean
+
+      - name: Verify scanner CLI (--help, no network)
+        run: ./build/scanner --help
