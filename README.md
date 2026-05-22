@@ -50,12 +50,3 @@ On startup the scanner logs **local IPv4 interfaces** for diagnostics.
 ```bash
 ctest --test-dir build
 ```
-
-Unit tests use synthetic DNS/mDNS packets only (no network). CI does not perform live LAN discovery.
-
-## Continuous integration
-
-| Workflow | File | What it runs |
-|----------|------|----------------|
-| **Build and Test** | [`.github/workflows/build-and-test.yml`](.github/workflows/build-and-test.yml) | Clean build, `ctest`, `./build/scanner --help` |
-| **CodeQL Analysis** | [`.github/workflows/codeql-analysis.yml`](.github/workflows/codeql-analysis.yml) | Static security analysis for C++ |
