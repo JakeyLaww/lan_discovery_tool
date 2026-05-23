@@ -15,6 +15,7 @@ set(LAN_MDNS_SOURCES
     src/mdns/MdnsMessageDecoder.cpp
     src/mdns/RDataFormatter.cpp
     src/mdns/QueryBuilder.cpp
+    src/mdns/DnsTypes.cpp
     src/util/BufferBoundsValidator.cpp
 )
 
@@ -28,8 +29,10 @@ set(LAN_DISCOVERY_SOURCES
     src/discovery/DiscoveryJson.cpp
     src/discovery/MdnsProbePlanner.cpp
     src/discovery/DeviceRegistry.cpp
+    src/discovery/RecordFilter.cpp
     src/core/MdnsPacketInterpreter.cpp
     src/core/DeviceStateStore.cpp
+    src/core/PacketReceiveQueue.cpp
     src/util/HexDump.cpp
 )
 
@@ -51,59 +54,4 @@ target_link_libraries(scanner PRIVATE lan_discovery lan_mdns)
 target_include_directories(scanner PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 enable_testing()
-
-add_executable(test_parser
-    tests/test_parser.cpp
-)
-
-target_link_libraries(test_parser PRIVATE lan_mdns)
-target_include_directories(test_parser PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME ParserTests COMMAND test_parser)
-
-add_executable(test_interpreter
-    tests/test_interpreter.cpp
-)
-
-target_link_libraries(test_interpreter PRIVATE lan_discovery lan_mdns)
-target_include_directories(test_interpreter PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME InterpreterTests COMMAND test_interpreter)
-
-add_executable(test_probe_planner
-    tests/test_probe_planner.cpp
-)
-
-target_link_libraries(test_probe_planner PRIVATE lan_discovery lan_mdns)
-target_include_directories(test_probe_planner PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME ProbePlannerTests COMMAND test_probe_planner)
-
-add_executable(test_device_registry
-    tests/test_device_registry.cpp
-)
-
-target_link_libraries(test_device_registry PRIVATE lan_discovery lan_mdns)
-target_include_directories(test_device_registry PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME DeviceRegistryTests COMMAND test_device_registry)
-
-add_executable(test_discovery_json
-    tests/test_discovery_json.cpp
-)
-
-target_link_libraries(test_discovery_json PRIVATE lan_discovery lan_mdns)
-target_include_directories(test_discovery_json PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME DiscoveryJsonTests COMMAND test_discovery_json)
-
-add_executable(test_mdns_names
-    tests/test_mdns_names.cpp
-)
-
-target_link_libraries(test_mdns_names PRIVATE lan_discovery lan_mdns)
-target_include_directories(test_mdns_names PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME MdnsNamesTests COMMAND test_mdns_names)
-
-add_executable(test_record_labels
-    tests/test_record_labels.cpp
-)
-
-target_link_libraries(test_record_labels PRIVATE lan_discovery lan_mdns)
-target_include_directories(test_record_labels PRIVATE ${CMAKE_SOURCE_DIR}/include)
-add_test(NAME RecordLabelsTests COMMAND test_record_labels)
+add_subdirectory(tests)

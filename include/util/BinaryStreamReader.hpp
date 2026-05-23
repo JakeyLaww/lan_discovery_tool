@@ -13,16 +13,6 @@
 namespace BinaryStreamReader {
 
     /**
-     * @brief Read a single byte from buffer.
-     * 
-     * @param ptr Pointer to buffer position (must not be nullptr).
-     * @return uint8_t The byte value.
-     */
-    inline uint8_t read_u8(const uint8_t* ptr) {
-        return ptr[0];
-    }
-
-    /**
      * @brief Read a 16-bit unsigned integer in big-endian byte order.
      * 
      * Reads two bytes at ptr[0] and ptr[1] and combines them as:

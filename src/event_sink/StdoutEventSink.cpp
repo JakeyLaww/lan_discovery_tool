@@ -3,20 +3,6 @@
 #include "mdns/DnsTypes.hpp"
 #include <sstream>
 
-namespace {
-
-const char* type_name(uint16_t type) {
-    switch (type) {
-        case DnsType::A: return "A";
-        case DnsType::PTR: return "PTR";
-        case DnsType::SRV: return "SRV";
-        case DnsType::TXT: return "TXT";
-        default: return "RR";
-    }
-}
-
-} // namespace
-
 class StdoutEventSink : public EventSink {
 public:
     explicit StdoutEventSink(std::shared_ptr<Logger> logger) : logger(std::move(logger)) {}
@@ -28,7 +14,7 @@ public:
             ss << "discovery"
                << " ts=" << format_timestamp_iso(seen_ms)
                << " src=" << ev.src_ip
-               << " type=" << type_name(rec.type)
+               << " type=" << dns_type_name(rec.type)
                << " owner=" << rec.owner_name
                << " | rdata=" << rec.rdata_text
                << " ttl=" << rec.ttl

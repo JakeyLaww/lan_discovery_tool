@@ -1,26 +1,13 @@
 #include "core/MdnsPacketInterpreter.hpp"
 #include "discovery/DiscoveryRecord.hpp"
-#include "discovery/MdnsNames.hpp"
+#include "discovery/RecordFilter.hpp"
 #include "mdns/MdnsMessageDecoder.hpp"
-#include "mdns/DnsTypes.hpp"
 #include "util/HexDump.hpp"
 #include <chrono>
 #include <sstream>
 #include <unordered_set>
 
 namespace {
-
-bool is_interesting_record(uint16_t type) {
-    switch (type) {
-        case DnsType::A:
-        case DnsType::PTR:
-        case DnsType::SRV:
-        case DnsType::TXT:
-            return true;
-        default:
-            return false;
-    }
-}
 
 void append_records(std::vector<ResourceRecordView>& out,
                     const std::vector<MdnsResourceRecord>& rrs,
@@ -29,9 +16,8 @@ void append_records(std::vector<ResourceRecordView>& out,
                     uint64_t observed_at_ms,
                     std::unordered_set<std::string>& seen) {
     for (const auto& rr : rrs) {
-        if (!is_interesting_record(rr.type)) continue;
         ResourceRecordView view = make_record_view(rr, packet, packet_len, observed_at_ms);
-        if (!MdnsNames::is_audit_relevant_record(view)) continue;
+        if (!is_displayable_record(view)) continue;
         const std::string key = record_content_key(view);
         if (!seen.insert(key).second) continue;
         out.push_back(std::move(view));

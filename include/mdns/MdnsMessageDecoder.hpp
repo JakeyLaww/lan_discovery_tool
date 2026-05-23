@@ -67,14 +67,4 @@ public:
      * @throws std::invalid_argument if the buffer is malformed or truncated.
      */
     MdnsParsedMessage decode();
-
-    /**
-     * @brief Parse only the DNS message header without decoding records.
-     * 
-     * Useful for quick filtering of messages before full parsing.
-     * 
-     * @return MdnsHeaderInfo The 12-byte DNS header decoded to host-byte-order fields.
-     * @throws std::invalid_argument if buffer is less than 12 bytes.
-     */
-    MdnsHeaderInfo decode_header_only();
 };

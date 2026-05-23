@@ -9,7 +9,7 @@ public:
         if (!store_ || !inner_) return;
         if (ev.records.empty()) return;
 
-        auto new_records = store_->filter_new(ev.src_ip, ev.records);
+        auto new_records = store_->filter_unseen(ev.src_ip, ev.records);
         if (new_records.empty()) return;
 
         DiscoveryEvent filtered = ev;

@@ -12,9 +12,13 @@ bool has_mdns_service_suffix(const std::string& name) {
     return ends_with(name, "._tcp.local") || ends_with(name, "._udp.local");
 }
 
+namespace {
+
 bool is_dns_sd_meta_service(const std::string& name) {
     return name == kDnsSdMetaService;
 }
+
+} // namespace
 
 int label_count(const std::string& name) {
     if (name.empty()) return 0;

@@ -75,20 +75,25 @@ void NetworkSocket::bind_multicast(uint16_t port, const std::string& multicast_i
         throw std::invalid_argument("Invalid multicast IP: " + multicast_ip);
     }
 
-    struct in_addr iface_addr;
-    iface_addr.s_addr = htonl(INADDR_ANY);
+    struct in_addr send_iface{};
+    send_iface.s_addr = htonl(INADDR_ANY);
     if (!interface_ipv4.empty()) {
-        if (inet_pton(AF_INET, interface_ipv4.c_str(), &iface_addr) != 1) {
+        if (inet_pton(AF_INET, interface_ipv4.c_str(), &send_iface) != 1) {
             throw std::invalid_argument("Invalid interface IPv4: " + interface_ipv4);
         }
-        if (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_IF, &iface_addr, sizeof(iface_addr)) < 0) {
+        if (setsockopt(sock_fd, IPPROTO_IP, IP_MULTICAST_IF, &send_iface, sizeof(send_iface)) < 0) {
             cleanup_and_throw("setsockopt(IP_MULTICAST_IF)");
         }
     }
 
+    // Receive on all local interfaces (INADDR_ANY). Pinning imr_interface to one NIC
+    // breaks multicast ingress on WSL2 mirrored networking; egress uses send_iface above.
+    struct in_addr recv_membership{};
+    recv_membership.s_addr = htonl(INADDR_ANY);
+
     struct ip_mreq mreq{};
     mreq.imr_multiaddr = mcast;
-    mreq.imr_interface = iface_addr;
+    mreq.imr_interface = recv_membership;
     if (setsockopt(sock_fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         cleanup_and_throw("setsockopt(IP_ADD_MEMBERSHIP)");
     }

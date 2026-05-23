@@ -1,10 +1,11 @@
 #include "mdns/Parser.hpp"
 #include "mdns/MdnsMessageDecoder.hpp"
 #include "mdns/RDataFormatter.hpp"
+#include "util/BinaryStreamReader.hpp"
+#include "util/BufferBoundsValidator.hpp"
 #include "MDNSDefinitions.hpp"
 
-MdnsHeaderInfo parse_basic_header(const uint8_t* buf, size_t len) {
-    auto h = MDNS::parse_dns_header(buf, len);
+MdnsHeaderInfo from_dns_header(const MDNS::DnsHeaderHost& h) {
     MdnsHeaderInfo info;
     info.transaction_id = h.transaction_id;
     info.flags = h.flags;
@@ -13,6 +14,10 @@ MdnsHeaderInfo parse_basic_header(const uint8_t* buf, size_t len) {
     info.authority_rrs = h.authority_rrs;
     info.additional_rrs = h.additional_rrs;
     return info;
+}
+
+MdnsHeaderInfo parse_basic_header(const uint8_t* buf, size_t len) {
+    return from_dns_header(MDNS::parse_dns_header(buf, len));
 }
 
 std::pair<std::vector<MdnsQuestion>, size_t> parse_questions(
@@ -25,22 +30,15 @@ std::pair<std::vector<MdnsQuestion>, size_t> parse_questions(
             throw std::invalid_argument("Questions truncated at buffer end");
         }
 
-        // Parse QNAME
         auto [name, new_pos] = MDNS::parse_qname(buf, len, pos);
         pos = new_pos;
 
-        // Parse TYPE (2 bytes)
-        if (pos + 2 > len) {
-            throw std::invalid_argument("Question TYPE field truncated");
-        }
-        uint16_t type = MDNS::read_u16_be(buf + pos);
+        BufferBoundsValidator::ensure_readable(pos, 2, len, "Question TYPE field");
+        uint16_t type = BinaryStreamReader::read_u16_be(buf + pos);
         pos += 2;
 
-        // Parse CLASS (2 bytes)
-        if (pos + 2 > len) {
-            throw std::invalid_argument("Question CLASS field truncated");
-        }
-        uint16_t class_code = MDNS::read_u16_be(buf + pos);
+        BufferBoundsValidator::ensure_readable(pos, 2, len, "Question CLASS field");
+        uint16_t class_code = BinaryStreamReader::read_u16_be(buf + pos);
         pos += 2;
 
         questions.push_back({name, type, class_code});

@@ -31,10 +31,6 @@ struct MdnsProbePlannerConfig {
  */
 class MdnsProbePlanner {
 public:
-    static constexpr size_t kDefaultMaxPending = 256;
-    static constexpr size_t kDefaultMaxProbesPerTick = 8;
-    static constexpr uint32_t kDefaultProbeCooldownMs = 60'000;
-
     explicit MdnsProbePlanner(MdnsProbePlannerConfig config = {});
 
     void observe(const DiscoveryEvent& ev);

@@ -11,8 +11,6 @@ bool ends_with(const std::string& s, const std::string& suffix);
 
 bool has_mdns_service_suffix(const std::string& name);
 
-bool is_dns_sd_meta_service(const std::string& name);
-
 /** e.g. _airplay._tcp.local (three labels) */
 bool is_service_type_name(const std::string& name);
 

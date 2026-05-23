@@ -1,5 +1,6 @@
 #include "discovery/DiscoveryRecord.hpp"
-#include <sstream>
+#include "util/KeyBuilder.hpp"
+#include <string>
 
 ResourceRecordView make_record_view(const MdnsResourceRecord& rr,
                                    const uint8_t* message,
@@ -15,13 +16,9 @@ ResourceRecordView make_record_view(const MdnsResourceRecord& rr,
 }
 
 std::string record_content_key(const ResourceRecordView& rec) {
-    std::ostringstream oss;
-    oss << rec.owner_name << '|' << rec.type << '|' << rec.rdata_text;
-    return oss.str();
+    return join_key({rec.owner_name, std::to_string(rec.type), rec.rdata_text});
 }
 
 std::string record_store_key(const std::string& src_ip, const ResourceRecordView& rec) {
-    std::ostringstream oss;
-    oss << src_ip << '|' << record_content_key(rec);
-    return oss.str();
+    return join_key({src_ip, record_content_key(rec)});
 }

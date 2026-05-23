@@ -1,32 +1,50 @@
 #include "DiscoveryEngine.hpp"
+#include "NetworkSocket.hpp"
 #include "MDNSDefinitions.hpp"
+#include "core/MdnsPacketInterpreter.hpp"
+#include "core/PacketReceiveQueue.hpp"
 #include "discovery/MdnsNames.hpp"
 #include "mdns/DnsTypes.hpp"
 #include "mdns/QueryBuilder.hpp"
 #include "util/InterfaceInfo.hpp"
-#include "util/AgentDebugLog.hpp"
 #include <chrono>
 #include <cerrno>
 #include <sstream>
 #include <system_error>
 
-DiscoveryEngine::DiscoveryEngine(std::shared_ptr<Logger> logger_)
+DiscoveryEngine::DiscoveryEngine(std::shared_ptr<Logger> logger)
+    : DiscoveryEngine(std::move(logger), nullptr) {}
+
+DiscoveryEngine::DiscoveryEngine(std::shared_ptr<Logger> logger_,
+                                 std::unique_ptr<MdnsPacketInterpreter> interpreter)
     : socket(std::make_unique<NetworkSocket>()),
       logger(std::move(logger_)),
-      packet_interpreter(std::make_unique<MdnsPacketInterpreter>(logger)),
+      packet_interpreter(interpreter ? std::move(interpreter)
+                                     : std::make_unique<MdnsPacketInterpreter>(logger)),
       probe_planner_(std::make_unique<MdnsProbePlanner>()),
+      packet_queue_(std::make_unique<PacketReceiveQueue>(kMaxPacketQueueSize)),
       running(false) {}
+
+DiscoveryEngine::~DiscoveryEngine() = default;
 
 void DiscoveryEngine::set_probe_planner_config(MdnsProbePlannerConfig config) {
     probe_planner_ = std::make_unique<MdnsProbePlanner>(config);
 }
 
 bool DiscoveryEngine::start(const std::string& interface_name) {
+    std::string bound_iface = interface_name;
     std::string iface_ip;
-    if (!interface_name.empty()) {
-        iface_ip = ipv4_for_interface(interface_name);
+    if (bound_iface.empty()) {
+        if (const auto picked = pick_default_multicast_interface()) {
+            bound_iface = picked->name;
+            iface_ip = picked->ipv4;
+            logger->info("Auto-selected interface " + bound_iface + " (" + iface_ip +
+                         ") for multicast");
+        }
+    } else {
+        iface_ip = ipv4_for_interface(bound_iface);
         if (iface_ip.empty()) {
-            logger->error("Interface not found or has no IPv4: " + interface_name);
+            logger->error("Interface not found or has no IPv4: " + bound_iface);
             return false;
         }
     }
@@ -41,7 +59,7 @@ bool DiscoveryEngine::start(const std::string& interface_name) {
     std::ostringstream bound;
     bound << "Engine active. mDNS " << MDNS::MULTICAST_GROUP << ":" << MDNS::PORT;
     if (!iface_ip.empty()) {
-        bound << " on interface " << interface_name << " (" << iface_ip << ")";
+        bound << " on interface " << bound_iface << " (" << iface_ip << ")";
     }
 
     const auto ifaces = list_ipv4_interfaces();
@@ -57,41 +75,44 @@ bool DiscoveryEngine::start(const std::string& interface_name) {
     return true;
 }
 
-void DiscoveryEngine::broadcast_meta_browse() {
-    QueryBuilder qb(0);
-    qb.add_question(MdnsNames::kDnsSdMetaService, DnsType::PTR, DnsClass::IN);
-    auto query = qb.build();
-
-    try {
-        socket->send_packet(query, MDNS::MULTICAST_GROUP, MDNS::PORT);
-        logger->debug("Broadcasted meta service discovery query.");
-    } catch (const std::exception& ex) {
-        logger->error(std::string("Failed to broadcast meta browse: ") + ex.what());
-        error_occurred_.store(true);
-    }
-}
-
-void DiscoveryEngine::send_probe_batch(const MdnsProbeBatch& batch) {
-    if (batch.empty()) return;
+void DiscoveryEngine::send_mdns_questions(const std::vector<MdnsProbeRequest>& questions,
+                                          const char* success_log,
+                                          const char* error_context) {
+    if (questions.empty()) return;
 
     QueryBuilder qb(0);
-    for (const auto& req : batch) {
+    for (const auto& req : questions) {
         qb.add_question(req.qname, req.qtype, DnsClass::IN);
     }
     auto query = qb.build();
 
     try {
         socket->send_packet(query, MDNS::MULTICAST_GROUP, MDNS::PORT);
-        std::ostringstream oss;
-        oss << "Probe query";
-        for (const auto& req : batch) {
-            oss << " " << req.qname << "/" << req.qtype;
+        if (success_log != nullptr) {
+            logger->debug(success_log);
         }
-        logger->debug(oss.str());
     } catch (const std::exception& ex) {
-        logger->error(std::string("Failed to send probe query: ") + ex.what());
+        logger->error(std::string(error_context) + ex.what());
         error_occurred_.store(true);
     }
+}
+
+void DiscoveryEngine::broadcast_meta_browse() {
+    send_mdns_questions({MdnsProbeRequest{MdnsNames::kDnsSdMetaService, DnsType::PTR}},
+                        "Broadcasted meta service discovery query.",
+                        "Failed to broadcast meta browse: ");
+}
+
+void DiscoveryEngine::send_probe_batch(const MdnsProbeBatch& batch) {
+    if (batch.empty()) return;
+
+    std::ostringstream probe_log;
+    probe_log << "Probe query";
+    for (const auto& req : batch) {
+        probe_log << " " << req.qname << "/" << req.qtype;
+    }
+    const std::string probe_log_msg = probe_log.str();
+    send_mdns_questions(batch, probe_log_msg.c_str(), "Failed to send probe query: ");
 }
 
 void DiscoveryEngine::drain_and_send_probes() {
@@ -122,21 +143,7 @@ void DiscoveryEngine::receiver_loop() {
         try {
             ssize_t n = socket->receive_packet(buffer, sender_ip);
             if (n > 0) {
-                // #region agent log
-                {
-                    std::ostringstream dj;
-                    dj << "{\"src\":\"" << sender_ip << "\",\"bytes\":" << n << "}";
-                    agent_debug_log("H3", "DiscoveryEngine.cpp:receiver_loop",
-                                    "udp_packet_received", dj.str());
-                }
-                // #endregion
-                std::lock_guard<std::mutex> lk(queue_mutex);
-                if (packet_queue.size() >= kMaxPacketQueueSize) {
-                    packet_queue.pop_front();
-                    ++dropped_packets_;
-                }
-                packet_queue.emplace_back(buffer, sender_ip);
-                queue_cv.notify_one();
+                packet_queue_->push(buffer, sender_ip);
             }
         } catch (const std::system_error& ex) {
             int err = ex.code().value();
@@ -151,22 +158,21 @@ void DiscoveryEngine::receiver_loop() {
 
 void DiscoveryEngine::worker_loop() {
     while (running.load()) {
-        std::unique_lock<std::mutex> lk(queue_mutex);
-        queue_cv.wait(lk, [this] { return !packet_queue.empty() || !running.load(); });
-        if (!running.load() && packet_queue.empty()) break;
-        auto item = std::move(packet_queue.front());
-        packet_queue.pop_front();
-        lk.unlock();
+        std::vector<uint8_t> buffer;
+        std::string src_ip;
+        if (!packet_queue_->wait_pop(buffer, src_ip, [this] { return running.load(); })) {
+            break;
+        }
 
-        const auto& buffer = item.first;
-        const auto& src_ip = item.second;
         try {
             auto msg = packet_interpreter->decode_packet(buffer);
 
             if (!MdnsPacketInterpreter::is_dns_response(msg)) {
+                ++queries_seen_;
                 packet_interpreter->log_ignored_query(src_ip);
                 continue;
             }
+            ++responses_seen_;
 
             packet_interpreter->log_packet_summary(src_ip, buffer, msg);
 
@@ -178,6 +184,7 @@ void DiscoveryEngine::worker_loop() {
                 probe_planner_->observe(ev);
             }
             if (sink && !ev.records.empty()) {
+                ++sink_events_;
                 sink->on_event(ev);
             }
         } catch (const std::exception& ex) {
@@ -207,7 +214,10 @@ bool DiscoveryEngine::run(uint32_t poll_interval_ms, std::function<bool()> shutd
     }
 
     error_occurred_.store(false);
-    dropped_packets_ = 0;
+    packet_queue_->reset_dropped_count();
+    queries_seen_ = 0;
+    responses_seen_ = 0;
+    sink_events_ = 0;
     socket->set_receive_timeout(1000);
     running.store(true);
 
@@ -231,15 +241,25 @@ bool DiscoveryEngine::run(uint32_t poll_interval_ms, std::function<bool()> shutd
     }
 
     running.store(false);
-    queue_cv.notify_all();
+    packet_queue_->notify_all();
 
     if (receiver_thread.joinable()) receiver_thread.join();
     if (poller_thread.joinable()) poller_thread.join();
     if (worker_thread.joinable()) worker_thread.join();
 
-    if (dropped_packets_ > 0) {
-        logger->warn("Dropped " + std::to_string(dropped_packets_) +
+    const size_t dropped_packets = packet_queue_->dropped_count();
+    if (dropped_packets > 0) {
+        logger->warn("Dropped " + std::to_string(dropped_packets) +
                      " packets due to queue limit (" + std::to_string(kMaxPacketQueueSize) + ")");
+    }
+
+    logger->info("mDNS session: " + std::to_string(responses_seen_) + " responses, " +
+                 std::to_string(queries_seen_) + " queries from other hosts, " +
+                 std::to_string(sink_events_) + " discovery events emitted");
+    if (responses_seen_ == 0 && queries_seen_ > 0) {
+        logger->warn(
+            "Heard other hosts' mDNS queries but no responses to this scanner. Ensure Bonjour "
+            "devices are awake, or pin the LAN NIC with -I eth1 (see startup interfaces).");
     }
 
     logger->info("Discovery loop exiting.");

@@ -1,15 +1,14 @@
 #include "discovery/MdnsProbePlanner.hpp"
 #include "discovery/MdnsNames.hpp"
 #include "mdns/DnsTypes.hpp"
-#include <sstream>
+#include "util/KeyBuilder.hpp"
+#include <string>
 
 MdnsProbePlanner::MdnsProbePlanner(MdnsProbePlannerConfig config)
     : config_(config) {}
 
 std::string MdnsProbePlanner::probe_key(const std::string& qname, uint16_t qtype) const {
-    std::ostringstream oss;
-    oss << qname << '|' << qtype;
-    return oss.str();
+    return join_key({qname, std::to_string(qtype)});
 }
 
 bool MdnsProbePlanner::try_enqueue(const std::string& qname, uint16_t qtype) {

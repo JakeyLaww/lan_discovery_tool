@@ -1,5 +1,6 @@
 #pragma once
 #include "mdns/DnsProtocol.hpp"
+#include "util/BinaryStreamReader.hpp"
 #include <cstdint>
 #include <cstddef>
 #include <string>
@@ -23,9 +24,12 @@ namespace MDNS {
         uint16_t additional_rrs;
     };
 
-    // Helper to read a big-endian 16-bit value from an unaligned buffer.
     inline uint16_t read_u16_be(const uint8_t* p) {
-        return (static_cast<uint16_t>(p[0]) << 8) | static_cast<uint16_t>(p[1]);
+        return BinaryStreamReader::read_u16_be(p);
+    }
+
+    inline uint32_t read_u32_be(const uint8_t* p) {
+        return BinaryStreamReader::read_u32_be(p);
     }
 
     /**

@@ -45,11 +45,12 @@ On startup the scanner logs **local IPv4 interfaces** for diagnostics.
 
 ## Architecture
 
-- `DiscoveryEngine`: threads, meta browse, `MdnsProbePlanner` follow-up queue, packet queue
+- `DiscoveryEngine`: threads, meta browse, `MdnsProbePlanner` follow-up queue; delegates receive buffering to `PacketReceiveQueue`
+- `PacketReceiveQueue`: bounded thread-safe packet deque with drop accounting
 - `MdnsProbePlanner`: schedules service/instance probes (worker enqueues, poller sends)
 - `NetworkSocket`: multicast bind, optional interface, loopback off
-- `MdnsPacketInterpreter`: decode; skip DNS queries (QR=0)
-- `DeviceStateStore` + `ChangeFilteredEventSink`: emit on change only
+- `MdnsPacketInterpreter`: decode; skip DNS queries (QR=0); `RecordFilter` selects displayable records
+- `DeviceStateStore` + `ChangeFilteredEventSink`: suppress duplicate identical records (`filter_unseen`)
 - `DeviceRegistry` + `DeviceSummaryEventSink`: aggregate by `src_ip`, log device block on change
 - `StdoutEventSink`: human-readable discovery lines
 

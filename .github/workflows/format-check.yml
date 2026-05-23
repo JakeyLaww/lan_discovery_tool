@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: format-check-${{ github.ref }}
@@ -21,11 +21,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
 
       - name: Install clang-format
-        run: sudo apt-get update && sudo apt-get install -y clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format-18
 
-      - name: Check C++ formatting
+      - name: Apply clang-format
         run: |
           find include src tests -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
-            | xargs -0 clang-format --dry-run --Werror
+            | xargs -0 clang-format-18 -i
+
+      - name: Verify formatting
+        run: |
+          find include src tests -type f \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
+            | xargs -0 clang-format-18 --dry-run --Werror
+
+      - name: Commit and push formatting fixes
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if git diff --quiet; then
+            echo "Already formatted"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add include src tests
+          git commit -m "style: apply clang-format"
+          git push

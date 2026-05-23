@@ -35,3 +35,31 @@ std::string ipv4_for_interface(const std::string& ifname) {
     }
     return {};
 }
+
+namespace {
+
+int multicast_interface_priority(const std::string& ipv4) {
+    if (ipv4.rfind("169.254.", 0) == 0) return -1;
+    if (ipv4.rfind("10.", 0) == 0) return 3;
+    if (ipv4.rfind("192.168.", 0) == 0) return 2;
+    if (ipv4.rfind("172.", 0) == 0) return 1;
+    return 0;
+}
+
+} // namespace
+
+std::optional<InterfaceAddress> pick_default_multicast_interface() {
+    const auto ifaces = list_ipv4_interfaces();
+    const InterfaceAddress* best = nullptr;
+    int best_pri = -1;
+    for (const auto& iface : ifaces) {
+        const int pri = multicast_interface_priority(iface.ipv4);
+        if (pri > best_pri) {
+            best_pri = pri;
+            best = &iface;
+        }
+    }
+    if (best) return *best;
+    if (!ifaces.empty()) return ifaces.front();
+    return std::nullopt;
+}

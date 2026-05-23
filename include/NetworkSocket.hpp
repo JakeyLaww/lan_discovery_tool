@@ -39,7 +39,10 @@ public:
     NetworkSocket(const NetworkSocket&) = delete;
     NetworkSocket& operator=(const NetworkSocket&) = delete;
 
-    /** @param interface_ipv4 Optional local IPv4 for multicast egress (empty = INADDR_ANY). */
+    /**
+     * @param interface_ipv4 Optional local IPv4 for multicast egress (IP_MULTICAST_IF).
+     *        Membership join always uses INADDR_ANY so ingress works on multi-homed/WSL hosts.
+     */
     void bind_multicast(uint16_t port, const std::string& multicast_ip,
                         const std::string& interface_ipv4 = "");
 

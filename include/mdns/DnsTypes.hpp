@@ -44,3 +44,6 @@ namespace DnsClass {
     constexpr uint16_t CH = 3;      // Chaos class
     constexpr uint16_t HS = 4;      // Hesiod class
 }
+
+/** Short name for discovery log output. */
+const char* dns_type_name(uint16_t type);

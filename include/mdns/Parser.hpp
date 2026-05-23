@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <vector>
 #include <string>
-#include <optional>
+#include "MDNSDefinitions.hpp"
 
 struct MdnsHeaderInfo {
     uint16_t transaction_id;
@@ -40,6 +40,8 @@ struct MdnsParsedMessage {
     std::vector<MdnsResourceRecord> authorities;
     std::vector<MdnsResourceRecord> additionals;
 };
+
+MdnsHeaderInfo from_dns_header(const MDNS::DnsHeaderHost& h);
 
 // Parse basic DNS header info. Throws std::invalid_argument on malformed input.
 MdnsHeaderInfo parse_basic_header(const uint8_t* buf, size_t len);

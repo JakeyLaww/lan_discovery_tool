@@ -6,18 +6,6 @@
 MdnsMessageDecoder::MdnsMessageDecoder(const uint8_t* buf, size_t len)
     : buffer(buf), buffer_len(len) {}
 
-MdnsHeaderInfo MdnsMessageDecoder::decode_header_only() {
-    auto h = MDNS::parse_dns_header(buffer, buffer_len);
-    MdnsHeaderInfo info;
-    info.transaction_id = h.transaction_id;
-    info.flags = h.flags;
-    info.questions = h.questions;
-    info.answer_rrs = h.answer_rrs;
-    info.authority_rrs = h.authority_rrs;
-    info.additional_rrs = h.additional_rrs;
-    return info;
-}
-
 MdnsResourceRecord MdnsMessageDecoder::parse_record_impl(size_t& pos) {
     if (pos >= buffer_len) {
         throw std::invalid_argument("Resource record offset out of bounds");
@@ -65,8 +53,7 @@ std::vector<MdnsResourceRecord> MdnsMessageDecoder::parse_record_section(uint16_
 }
 
 MdnsParsedMessage MdnsMessageDecoder::decode() {
-    // Parse header
-    auto header = decode_header_only();
+    auto header = from_dns_header(MDNS::parse_dns_header(buffer, buffer_len));
 
     size_t pos = 12;  // Header is always 12 bytes
     MdnsParsedMessage msg{header, {}, {}, {}, {}};
