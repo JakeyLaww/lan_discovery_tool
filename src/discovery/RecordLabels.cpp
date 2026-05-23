@@ -1,4 +1,5 @@
 #include "discovery/RecordLabels.hpp"
+#include "discovery/MdnsNames.hpp"
 #include "mdns/DnsTypes.hpp"
 #include <chrono>
 #include <ctime>
@@ -19,15 +20,6 @@ std::string format_timestamp_iso(uint64_t timestamp_ms) {
 
 namespace {
 
-bool ends_with(const std::string& s, const std::string& suffix) {
-    if (s.size() < suffix.size()) return false;
-    return s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
-}
-
-bool looks_like_service_name(const std::string& name) {
-    return ends_with(name, "._tcp.local") || ends_with(name, "._udp.local");
-}
-
 std::string extract_after_prefix(const std::string& text, const std::string& prefix) {
     const auto pos = text.find(prefix);
     if (pos == std::string::npos) return {};
@@ -37,14 +29,18 @@ std::string extract_after_prefix(const std::string& text, const std::string& pre
 } // namespace
 
 std::string service_label(const ResourceRecordView& rec) {
-    if (rec.type == DnsType::PTR && looks_like_service_name(rec.rdata_text)) {
+    if (rec.type == DnsType::PTR && MdnsNames::has_mdns_service_suffix(rec.rdata_text)) {
         return rec.rdata_text;
     }
     if (rec.type == DnsType::SRV) {
-        const std::string target = extract_after_prefix(rec.rdata_text, "target=");
-        if (!target.empty()) return target;
+        if (MdnsNames::is_instance_name(rec.owner_name)) {
+            return rec.owner_name;
+        }
+        if (MdnsNames::is_service_type_name(rec.owner_name)) {
+            return rec.owner_name;
+        }
     }
-    if (looks_like_service_name(rec.owner_name)) {
+    if (MdnsNames::has_mdns_service_suffix(rec.owner_name)) {
         return rec.owner_name;
     }
     return {};
@@ -56,12 +52,12 @@ std::string host_label(const ResourceRecordView& rec) {
         if (!target.empty()) return target;
     }
     if (rec.type == DnsType::A || rec.type == DnsType::AAAA) {
-        if (ends_with(rec.owner_name, ".local")) {
+        if (MdnsNames::ends_with(rec.owner_name, ".local")) {
             return rec.owner_name;
         }
         return rec.owner_name + " (" + rec.rdata_text + ")";
     }
-    if (rec.type == DnsType::TXT && ends_with(rec.owner_name, ".local")) {
+    if (rec.type == DnsType::TXT && MdnsNames::ends_with(rec.owner_name, ".local")) {
         return rec.owner_name;
     }
     return {};

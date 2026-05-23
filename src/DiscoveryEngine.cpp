@@ -1,8 +1,10 @@
 #include "DiscoveryEngine.hpp"
 #include "MDNSDefinitions.hpp"
+#include "discovery/MdnsNames.hpp"
 #include "mdns/DnsTypes.hpp"
 #include "mdns/QueryBuilder.hpp"
 #include "util/InterfaceInfo.hpp"
+#include "util/AgentDebugLog.hpp"
 #include <chrono>
 #include <cerrno>
 #include <sstream>
@@ -12,7 +14,12 @@ DiscoveryEngine::DiscoveryEngine(std::shared_ptr<Logger> logger_)
     : socket(std::make_unique<NetworkSocket>()),
       logger(std::move(logger_)),
       packet_interpreter(std::make_unique<MdnsPacketInterpreter>(logger)),
+      probe_planner_(std::make_unique<MdnsProbePlanner>()),
       running(false) {}
+
+void DiscoveryEngine::set_probe_planner_config(MdnsProbePlannerConfig config) {
+    probe_planner_ = std::make_unique<MdnsProbePlanner>(config);
+}
 
 bool DiscoveryEngine::start(const std::string& interface_name) {
     std::string iface_ip;
@@ -50,17 +57,49 @@ bool DiscoveryEngine::start(const std::string& interface_name) {
     return true;
 }
 
-void DiscoveryEngine::broadcast_query() {
+void DiscoveryEngine::broadcast_meta_browse() {
     QueryBuilder qb(0);
-    qb.add_question("_services._dns-sd._udp.local", DnsType::PTR, DnsClass::IN);
+    qb.add_question(MdnsNames::kDnsSdMetaService, DnsType::PTR, DnsClass::IN);
     auto query = qb.build();
 
     try {
         socket->send_packet(query, MDNS::MULTICAST_GROUP, MDNS::PORT);
-        logger->debug("Broadcasted service discovery query.");
+        logger->debug("Broadcasted meta service discovery query.");
     } catch (const std::exception& ex) {
-        logger->error(std::string("Failed to broadcast query: ") + ex.what());
+        logger->error(std::string("Failed to broadcast meta browse: ") + ex.what());
         error_occurred_.store(true);
+    }
+}
+
+void DiscoveryEngine::send_probe_batch(const MdnsProbeBatch& batch) {
+    if (batch.empty()) return;
+
+    QueryBuilder qb(0);
+    for (const auto& req : batch) {
+        qb.add_question(req.qname, req.qtype, DnsClass::IN);
+    }
+    auto query = qb.build();
+
+    try {
+        socket->send_packet(query, MDNS::MULTICAST_GROUP, MDNS::PORT);
+        std::ostringstream oss;
+        oss << "Probe query";
+        for (const auto& req : batch) {
+            oss << " " << req.qname << "/" << req.qtype;
+        }
+        logger->debug(oss.str());
+    } catch (const std::exception& ex) {
+        logger->error(std::string("Failed to send probe query: ") + ex.what());
+        error_occurred_.store(true);
+    }
+}
+
+void DiscoveryEngine::drain_and_send_probes() {
+    if (!probe_planner_) return;
+
+    const auto batches = probe_planner_->drain_ready(0);
+    for (const auto& batch : batches) {
+        send_probe_batch(batch);
     }
 }
 
@@ -83,6 +122,14 @@ void DiscoveryEngine::receiver_loop() {
         try {
             ssize_t n = socket->receive_packet(buffer, sender_ip);
             if (n > 0) {
+                // #region agent log
+                {
+                    std::ostringstream dj;
+                    dj << "{\"src\":\"" << sender_ip << "\",\"bytes\":" << n << "}";
+                    agent_debug_log("H3", "DiscoveryEngine.cpp:receiver_loop",
+                                    "udp_packet_received", dj.str());
+                }
+                // #endregion
                 std::lock_guard<std::mutex> lk(queue_mutex);
                 if (packet_queue.size() >= kMaxPacketQueueSize) {
                     packet_queue.pop_front();
@@ -123,9 +170,12 @@ void DiscoveryEngine::worker_loop() {
 
             packet_interpreter->log_packet_summary(src_ip, buffer, msg);
 
-            auto ev = packet_interpreter->create_discovery_event(src_ip, msg);
+            auto ev = packet_interpreter->create_discovery_event(src_ip, buffer, msg);
             if (ev.records.empty() && msg.header.answer_rrs > 0) {
                 packet_interpreter->log_undisplayable_response(src_ip, msg);
+            }
+            if (probe_planner_) {
+                probe_planner_->observe(ev);
             }
             if (sink && !ev.records.empty()) {
                 sink->on_event(ev);
@@ -139,7 +189,8 @@ void DiscoveryEngine::worker_loop() {
 void DiscoveryEngine::poller_loop(uint32_t poll_interval_ms) {
     std::chrono::milliseconds interval(poll_interval_ms);
     while (running.load()) {
-        broadcast_query();
+        broadcast_meta_browse();
+        drain_and_send_probes();
         std::this_thread::sleep_for(interval);
         if (!running.load()) break;
     }

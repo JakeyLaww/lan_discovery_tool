@@ -29,7 +29,7 @@ jobs:
       - name: Install CMake and G++
         run: sudo apt-get update && sudo apt-get install -y cmake g++
 
-      - name: Clean build, run ctest (Parser + Interpreter)
+      - name: Clean build and ctest (all unit tests)
         run: ./scripts/build.sh --clean
 
       - name: Verify scanner CLI (--help, no network)

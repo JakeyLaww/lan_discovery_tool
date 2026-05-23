@@ -22,6 +22,7 @@ public:
     MdnsParsedMessage decode_packet(const std::vector<uint8_t>& buffer);
 
     DiscoveryEvent create_discovery_event(const std::string& src_ip,
+                                         const std::vector<uint8_t>& packet,
                                          const MdnsParsedMessage& parsed_packet);
 
     void log_ignored_query(const std::string& src_ip);

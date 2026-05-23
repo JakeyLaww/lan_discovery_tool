@@ -1,9 +1,12 @@
 #include "core/MdnsPacketInterpreter.hpp"
+#include "discovery/DiscoveryRecord.hpp"
+#include "discovery/MdnsNames.hpp"
 #include "mdns/MdnsMessageDecoder.hpp"
 #include "mdns/DnsTypes.hpp"
 #include "util/HexDump.hpp"
 #include <chrono>
 #include <sstream>
+#include <unordered_set>
 
 namespace {
 
@@ -20,10 +23,18 @@ bool is_interesting_record(uint16_t type) {
 }
 
 void append_records(std::vector<ResourceRecordView>& out,
-                    const std::vector<MdnsResourceRecord>& rrs) {
+                    const std::vector<MdnsResourceRecord>& rrs,
+                    const uint8_t* packet,
+                    size_t packet_len,
+                    uint64_t observed_at_ms,
+                    std::unordered_set<std::string>& seen) {
     for (const auto& rr : rrs) {
         if (!is_interesting_record(rr.type)) continue;
-        out.push_back(ResourceRecordView{rr.name, rr.type, rr.rdata_str()});
+        ResourceRecordView view = make_record_view(rr, packet, packet_len, observed_at_ms);
+        if (!MdnsNames::is_audit_relevant_record(view)) continue;
+        const std::string key = record_content_key(view);
+        if (!seen.insert(key).second) continue;
+        out.push_back(std::move(view));
     }
 }
 
@@ -41,17 +52,22 @@ MdnsParsedMessage MdnsPacketInterpreter::decode_packet(const std::vector<uint8_t
     return decoder.decode();
 }
 
-DiscoveryEvent MdnsPacketInterpreter::create_discovery_event(const std::string& src_ip,
-                                                             const MdnsParsedMessage& parsed_packet) {
+DiscoveryEvent MdnsPacketInterpreter::create_discovery_event(
+    const std::string& src_ip,
+    const std::vector<uint8_t>& packet,
+    const MdnsParsedMessage& parsed_packet) {
     DiscoveryEvent ev;
     ev.timestamp_ms = static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
     ev.src_ip = src_ip;
 
-    append_records(ev.records, parsed_packet.answers);
-    append_records(ev.records, parsed_packet.authorities);
-    append_records(ev.records, parsed_packet.additionals);
+    const uint8_t* wire = packet.data();
+    const size_t wire_len = packet.size();
+    std::unordered_set<std::string> seen;
+    append_records(ev.records, parsed_packet.answers, wire, wire_len, ev.timestamp_ms, seen);
+    append_records(ev.records, parsed_packet.authorities, wire, wire_len, ev.timestamp_ms, seen);
+    append_records(ev.records, parsed_packet.additionals, wire, wire_len, ev.timestamp_ms, seen);
 
     return ev;
 }

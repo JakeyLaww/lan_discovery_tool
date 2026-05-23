@@ -8,8 +8,13 @@ public:
     void on_event(const DiscoveryEvent& ev) override {
         if (!store_ || !inner_) return;
         if (ev.records.empty()) return;
-        if (!store_->update_and_changed(ev)) return;
-        inner_->on_event(ev);
+
+        auto new_records = store_->filter_new(ev.src_ip, ev.records);
+        if (new_records.empty()) return;
+
+        DiscoveryEvent filtered = ev;
+        filtered.records = std::move(new_records);
+        inner_->on_event(filtered);
     }
 
 private:

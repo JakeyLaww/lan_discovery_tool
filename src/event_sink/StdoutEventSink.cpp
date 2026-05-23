@@ -22,15 +22,17 @@ public:
     explicit StdoutEventSink(std::shared_ptr<Logger> logger) : logger(std::move(logger)) {}
 
     void on_event(const DiscoveryEvent& ev) override {
-        const std::string ts = format_timestamp_iso(ev.timestamp_ms);
         for (const auto& rec : ev.records) {
+            const uint64_t seen_ms = rec.observed_at_ms != 0 ? rec.observed_at_ms : ev.timestamp_ms;
             std::ostringstream ss;
             ss << "discovery"
-               << " ts=" << ts
+               << " ts=" << format_timestamp_iso(seen_ms)
                << " src=" << ev.src_ip
                << " type=" << type_name(rec.type)
                << " owner=" << rec.owner_name
-               << " rdata=" << rec.rdata_text;
+               << " | rdata=" << rec.rdata_text
+               << " ttl=" << rec.ttl
+               << " last_seen=" << format_timestamp_iso(seen_ms);
 
             const std::string service = service_label(rec);
             if (!service.empty()) {

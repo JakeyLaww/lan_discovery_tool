@@ -54,7 +54,12 @@ MdnsParsedMessage parse_full_message(const uint8_t* buf, size_t len) {
     return decoder.decode();
 }
 
-std::string MdnsResourceRecord::rdata_str() const {
+std::string MdnsResourceRecord::rdata_str(const uint8_t* message, size_t message_len) const {
+    RDataFormatContext ctx;
+    ctx.message = message;
+    ctx.message_len = message_len;
+    ctx.rdata_offset = rdata_offset;
+    ctx.rdata = &rdata;
     auto formatter = get_rdata_formatter(type);
-    return formatter->format(rdata);
+    return formatter->format(ctx);
 }

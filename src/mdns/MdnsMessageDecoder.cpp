@@ -49,10 +49,11 @@ MdnsResourceRecord MdnsMessageDecoder::parse_record_impl(size_t& pos) {
 
     // Parse RDATA
     BufferBoundsValidator::ensure_readable(pos, rdlength, buffer_len, "RR RDATA");
+    const size_t rdata_offset = pos;
     std::vector<uint8_t> rdata(buffer + pos, buffer + pos + rdlength);
     pos += rdlength;
 
-    return MdnsResourceRecord{name, type, class_code, ttl, rdata};
+    return MdnsResourceRecord{name, type, class_code, ttl, rdata, rdata_offset};
 }
 
 std::vector<MdnsResourceRecord> MdnsMessageDecoder::parse_record_section(uint16_t count, size_t& pos) {

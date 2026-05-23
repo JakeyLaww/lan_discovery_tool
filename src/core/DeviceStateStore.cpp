@@ -1,22 +1,16 @@
 #include "core/DeviceStateStore.hpp"
-#include <sstream>
+#include "discovery/DiscoveryRecord.hpp"
 
-std::string DeviceStateStore::make_key(const std::string& src_ip,
-                                       const ResourceRecordView& rec) const {
-    std::ostringstream oss;
-    oss << src_ip << '|' << rec.owner_name << '|' << rec.type << '|' << rec.rdata_text;
-    return oss.str();
-}
-
-bool DeviceStateStore::update_and_changed(const DiscoveryEvent& ev) {
-    bool changed = false;
-    for (const auto& rec : ev.records) {
-        const std::string key = make_key(ev.src_ip, rec);
-        const auto it = last_seen_.find(key);
-        if (it == last_seen_.end()) {
-            last_seen_.emplace(key, rec.rdata_text);
-            changed = true;
-        }
+std::vector<ResourceRecordView> DeviceStateStore::filter_new(
+    const std::string& src_ip,
+    const std::vector<ResourceRecordView>& records) {
+    std::vector<ResourceRecordView> out;
+    out.reserve(records.size());
+    for (const auto& rec : records) {
+        const std::string key = record_store_key(src_ip, rec);
+        if (last_seen_.find(key) != last_seen_.end()) continue;
+        last_seen_.emplace(key, RecordState{rec.rdata_text, rec.observed_at_ms});
+        out.push_back(rec);
     }
-    return changed;
+    return out;
 }

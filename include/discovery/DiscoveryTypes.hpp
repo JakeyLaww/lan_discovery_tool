@@ -8,6 +8,8 @@ struct ResourceRecordView {
     std::string owner_name;
     uint16_t type;
     std::string rdata_text;
+    uint32_t ttl = 0;
+    uint64_t observed_at_ms = 0;
 };
 
 struct DiscoveryEvent {

@@ -57,6 +57,8 @@ compile_commands.json
 *.log
 *.bak
 *.swp
+notes.md
+myplan.md
 
 # vcpkg
 vcpkg_installed/

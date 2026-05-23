@@ -30,7 +30,9 @@ std::string to_json(const DiscoveryEvent& ev) {
         const auto& r = ev.records[i];
         oss << "{\"owner_name\":\"" << json_escape(r.owner_name) << "\""
             << ",\"type\":" << r.type
-            << ",\"rdata_text\":\"" << json_escape(r.rdata_text) << "\"}";
+            << ",\"rdata_text\":\"" << json_escape(r.rdata_text) << "\""
+            << ",\"ttl\":" << r.ttl
+            << ",\"last_seen_ms\":" << r.observed_at_ms << "}";
     }
     oss << "]}";
     return oss.str();

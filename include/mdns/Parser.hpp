@@ -27,9 +27,10 @@ struct MdnsResourceRecord {
     uint16_t class_code;
     uint32_t ttl;
     std::vector<uint8_t> rdata;
-    
-    // Convenience method to interpret RDATA based on type
-    std::string rdata_str() const;
+    size_t rdata_offset = 0;
+
+    // Interpret RDATA; name-bearing types need the full wire message for compression.
+    std::string rdata_str(const uint8_t* message, size_t message_len) const;
 };
 
 struct MdnsParsedMessage {

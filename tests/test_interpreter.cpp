@@ -84,7 +84,7 @@ void test_create_discovery_event_from_ptr_response() {
     auto msg = interpreter.decode_packet(packet);
     assert(MdnsPacketInterpreter::is_dns_response(msg));
 
-    auto ev = interpreter.create_discovery_event("192.168.1.10", msg);
+    auto ev = interpreter.create_discovery_event("192.168.1.10", packet, msg);
     assert(!ev.records.empty());
     assert(ev.records[0].type == DnsType::PTR);
     assert(ev.records[0].rdata_text.find("airplay") != std::string::npos);
@@ -96,11 +96,76 @@ void test_create_discovery_event_from_ptr_response() {
     std::cout << "  ✓ create_discovery_event_from_ptr_response passed" << std::endl;
 }
 
+void test_create_discovery_event_compressed_ptr() {
+    uint8_t buffer[128];
+    std::memset(buffer, 0, sizeof(buffer));
+
+    buffer[2] = 0x84;
+    buffer[3] = 0x00;
+    buffer[7] = 0x01;
+
+    size_t pos = 12;
+    buffer[pos++] = 9;
+    std::memcpy(buffer + pos, "_services", 9);
+    pos += 9;
+    buffer[pos++] = 7;
+    std::memcpy(buffer + pos, "_dns-sd", 7);
+    pos += 7;
+    buffer[pos++] = 4;
+    std::memcpy(buffer + pos, "_udp", 4);
+    pos += 4;
+    buffer[pos++] = 5;
+    std::memcpy(buffer + pos, "local", 5);
+    pos += 5;
+    buffer[pos++] = 0x00;
+
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x0c;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x01;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x02;
+    buffer[pos++] = 0xC0;
+
+    const size_t target_name_offset = pos + 1;
+    buffer[pos++] = static_cast<uint8_t>(target_name_offset);
+
+    buffer[pos++] = 9;
+    std::memcpy(buffer + pos, "_airplay", 9);
+    pos += 9;
+    buffer[pos++] = 4;
+    std::memcpy(buffer + pos, "_tcp", 4);
+    pos += 4;
+    buffer[pos++] = 5;
+    std::memcpy(buffer + pos, "local", 5);
+    pos += 5;
+    buffer[pos++] = 0x00;
+
+    auto logger = std::make_shared<StdoutLogger>(LogLevel::Error);
+    MdnsPacketInterpreter interpreter(logger);
+
+    std::vector<uint8_t> packet(buffer, buffer + pos);
+    auto msg = interpreter.decode_packet(packet);
+    auto ev = interpreter.create_discovery_event("10.128.79.91", packet, msg);
+
+    assert(ev.records.size() == 1);
+    assert(ev.records[0].type == DnsType::PTR);
+    assert(ev.records[0].rdata_text.find("airplay") != std::string::npos);
+    assert(ev.records[0].rdata_text.find("(malformed") == std::string::npos);
+
+    std::cout << "  ✓ create_discovery_event_compressed_ptr passed" << std::endl;
+}
+
 int main() {
     std::cout << "Running interpreter tests..." << std::endl << std::endl;
     try {
         test_is_dns_response();
         test_create_discovery_event_from_ptr_response();
+        test_create_discovery_event_compressed_ptr();
         std::cout << std::endl << "✓ All interpreter tests passed!" << std::endl;
         return 0;
     } catch (const std::exception& ex) {

@@ -12,10 +12,17 @@
  * binary formats. Subclasses implement format-specific parsing and conversion
  * to human-readable strings.
  */
+struct RDataFormatContext {
+    const uint8_t* message = nullptr;
+    size_t message_len = 0;
+    size_t rdata_offset = 0;
+    const std::vector<uint8_t>* rdata = nullptr;
+};
+
 class RDataFormatter {
 public:
     virtual ~RDataFormatter() = default;
-    virtual std::string format(const std::vector<uint8_t>& rdata) const = 0;
+    virtual std::string format(const RDataFormatContext& ctx) const = 0;
 };
 
 using RDataFormatterPtr = std::shared_ptr<RDataFormatter>;
@@ -26,7 +33,7 @@ using RDataFormatterPtr = std::shared_ptr<RDataFormatter>;
  */
 class ARecordFormatter : public RDataFormatter {
 public:
-    std::string format(const std::vector<uint8_t>& rdata) const override;
+    std::string format(const RDataFormatContext& ctx) const override;
 };
 
 /**
@@ -35,7 +42,7 @@ public:
  */
 class AAAARecordFormatter : public RDataFormatter {
 public:
-    std::string format(const std::vector<uint8_t>& rdata) const override;
+    std::string format(const RDataFormatContext& ctx) const override;
 };
 
 /**
@@ -44,7 +51,7 @@ public:
  */
 class PTRRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const std::vector<uint8_t>& rdata) const override;
+    std::string format(const RDataFormatContext& ctx) const override;
 };
 
 /**
@@ -53,7 +60,7 @@ public:
  */
 class SRVRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const std::vector<uint8_t>& rdata) const override;
+    std::string format(const RDataFormatContext& ctx) const override;
 };
 
 /**
@@ -62,7 +69,7 @@ public:
  */
 class TXTRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const std::vector<uint8_t>& rdata) const override;
+    std::string format(const RDataFormatContext& ctx) const override;
 };
 
 /**
@@ -71,7 +78,7 @@ public:
  */
 class GenericRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const std::vector<uint8_t>& rdata) const override;
+    std::string format(const RDataFormatContext& ctx) const override;
 };
 
 /**

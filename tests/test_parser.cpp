@@ -177,7 +177,7 @@ void test_parse_full_message() {
     assert(msg.answers[0].type == DnsType::A);
     assert(msg.answers[0].ttl == 120);
     assert(msg.answers[0].rdata.size() == 4);
-    assert(msg.answers[0].rdata_str() == "192.168.1.1");
+    assert(msg.answers[0].rdata_str(buffer, pos) == "192.168.1.1");
 
     std::cout << "  ✓ parse_full_message passed" << std::endl;
 }
@@ -190,7 +190,7 @@ void test_rdata_formatters() {
         MdnsResourceRecord rr;
         rr.type = DnsType::A;
         rr.rdata = {192, 168, 1, 100};
-        assert(rr.rdata_str() == "192.168.1.100");
+        assert(rr.rdata_str(nullptr, 0) == "192.168.1.100");
     }
 
     // Test PTR record formatter
@@ -202,11 +202,72 @@ void test_rdata_formatters() {
         MdnsResourceRecord rr;
         rr.type = DnsType::PTR;
         rr.rdata.assign(ptr_data, ptr_data + sizeof(ptr_data));
-        std::string result = rr.rdata_str();
+        rr.rdata_offset = 0;
+        std::string result = rr.rdata_str(ptr_data, sizeof(ptr_data));
         assert(result.find("itunes") != std::string::npos);
     }
 
     std::cout << "  ✓ rdata formatters passed" << std::endl;
+}
+
+void test_ptr_rdata_compression() {
+    std::cout << "Testing PTR RDATA with compression pointer..." << std::endl;
+
+    uint8_t buffer[128];
+    std::memset(buffer, 0, sizeof(buffer));
+
+    buffer[2] = 0x84;
+    buffer[3] = 0x00;
+    buffer[7] = 0x01;
+
+    size_t pos = 12;
+    buffer[pos++] = 9;
+    std::memcpy(buffer + pos, "_services", 9);
+    pos += 9;
+    buffer[pos++] = 7;
+    std::memcpy(buffer + pos, "_dns-sd", 7);
+    pos += 7;
+    buffer[pos++] = 4;
+    std::memcpy(buffer + pos, "_udp", 4);
+    pos += 4;
+    buffer[pos++] = 5;
+    std::memcpy(buffer + pos, "local", 5);
+    pos += 5;
+    buffer[pos++] = 0x00;
+
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x0c;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x01;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x00;
+    buffer[pos++] = 0x02;
+    buffer[pos++] = 0xC0;
+
+    const size_t target_name_offset = pos + 1;
+    buffer[pos++] = static_cast<uint8_t>(target_name_offset);
+
+    buffer[pos++] = 9;
+    std::memcpy(buffer + pos, "_airplay", 9);
+    pos += 9;
+    buffer[pos++] = 4;
+    std::memcpy(buffer + pos, "_tcp", 4);
+    pos += 4;
+    buffer[pos++] = 5;
+    std::memcpy(buffer + pos, "local", 5);
+    pos += 5;
+    buffer[pos++] = 0x00;
+
+    auto msg = parse_full_message(buffer, pos);
+    assert(msg.answers.size() == 1);
+    const std::string rdata_text = msg.answers[0].rdata_str(buffer, pos);
+    assert(rdata_text.find("airplay") != std::string::npos);
+    assert(rdata_text.find("(malformed") == std::string::npos);
+
+    std::cout << "  ✓ PTR RDATA compression passed" << std::endl;
 }
 
 void test_query_builder_question_count() {
@@ -242,6 +303,7 @@ int main() {
         test_parse_questions();
         test_parse_full_message();
         test_rdata_formatters();
+        test_ptr_rdata_compression();
         test_query_builder_question_count();
 
         std::cout << std::endl << "✓ All tests passed!" << std::endl;

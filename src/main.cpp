@@ -1,9 +1,13 @@
 #include "DiscoveryEngine.hpp"
 #include "core/DeviceStateStore.hpp"
+#include "discovery/DeviceRegistry.hpp"
 #include "event_sink/ChangeFilteredEventSink.hpp"
+#include "event_sink/DeviceSummaryEventSink.hpp"
 #include "event_sink/StdoutEventSink.hpp"
+#include "discovery/MdnsProbePlanner.hpp"
 #include "log/ThreadSafeLogger.hpp"
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
@@ -34,6 +38,8 @@ static void print_usage(const char* prog) {
               << "  -q, --quiet    Log level WARN (errors and warnings only)\n"
               << "  -v, --verbose  Wire-level hex dumps and parse summaries\n"
               << "  -I, -i,--interface <name>  Bind multicast to interface (e.g. eth0)\n"
+              << "  --max-probes-per-tick <n>  Follow-up mDNS probes per poll (default 8)\n"
+              << "  --probe-cooldown-ms <ms>   Min ms before re-probing same name (default 60000)\n"
               << "  -h, --help     Show this help\n"
               << "\nDefault log level is INFO. Discovery lines print on new/changed records.\n";
 }
@@ -67,12 +73,24 @@ int main(int argc, char* argv[]) {
     if (iface.empty()) iface = get_option_value(argc, argv, "-i");
     if (iface.empty()) iface = get_option_value(argc, argv, "--interface");
 
+    MdnsProbePlannerConfig probe_config;
+    const std::string max_probes = get_option_value(argc, argv, "--max-probes-per-tick");
+    if (!max_probes.empty()) {
+        probe_config.max_probes_per_tick = static_cast<size_t>(std::strtoul(max_probes.c_str(), nullptr, 10));
+    }
+    const std::string cooldown = get_option_value(argc, argv, "--probe-cooldown-ms");
+    if (!cooldown.empty()) {
+        probe_config.probe_cooldown_ms = static_cast<uint32_t>(std::strtoul(cooldown.c_str(), nullptr, 10));
+    }
+
     DiscoveryEngine engine(logger);
     engine.set_verbose(wire_verbose);
+    engine.set_probe_planner_config(probe_config);
     if (!iface.empty()) engine.set_interface(iface);
-    engine.set_event_sink(make_change_filtered_event_sink(
-        device_store,
-        make_stdout_event_sink(logger)));
+    auto device_registry = std::make_shared<DeviceRegistry>();
+    auto stdout_sink = make_stdout_event_sink(logger);
+    auto summary_sink = make_device_summary_event_sink(device_registry, logger, stdout_sink);
+    engine.set_event_sink(make_change_filtered_event_sink(device_store, summary_sink));
 
     bool ok = engine.run(5000, []() { return g_shutdown_requested != 0; });
     return ok ? 0 : 1;

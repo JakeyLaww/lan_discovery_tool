@@ -3,6 +3,7 @@
 #include "NetworkSocket.hpp"
 #include "EventSink.hpp"
 #include "core/MdnsPacketInterpreter.hpp"
+#include "discovery/MdnsProbePlanner.hpp"
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -25,15 +26,19 @@ public:
     void set_event_sink(EventSinkPtr s);
     void set_verbose(bool verbose);
     void set_interface(const std::string& interface_name);
+    void set_probe_planner_config(MdnsProbePlannerConfig config);
     bool run(uint32_t poll_interval_ms = 5000, std::function<bool()> shutdown_requested = nullptr);
 
 private:
     bool start(const std::string& interface_name);
-    void broadcast_query();
+    void broadcast_meta_browse();
+    void drain_and_send_probes();
+    void send_probe_batch(const MdnsProbeBatch& batch);
     std::string interface_name_;
     std::unique_ptr<NetworkSocket> socket;
     std::shared_ptr<Logger> logger;
     std::unique_ptr<MdnsPacketInterpreter> packet_interpreter;
+    std::unique_ptr<MdnsProbePlanner> probe_planner_;
     std::atomic<bool> running{false};
     std::atomic<bool> error_occurred_{false};
     EventSinkPtr sink;
