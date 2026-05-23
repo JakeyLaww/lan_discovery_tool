@@ -1,9 +1,9 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
-#include <string>
 #include <memory>
+#include <string>
+#include <vector>
 
 /**
  * @brief Strategy interface for formatting DNS resource record data (RDATA).
@@ -13,16 +13,16 @@
  * to human-readable strings.
  */
 struct RDataFormatContext {
-    const uint8_t* message = nullptr;
-    size_t message_len = 0;
-    size_t rdata_offset = 0;
-    const std::vector<uint8_t>* rdata = nullptr;
+  const uint8_t *message = nullptr;
+  size_t message_len = 0;
+  size_t rdata_offset = 0;
+  const std::vector<uint8_t> *rdata = nullptr;
 };
 
 class RDataFormatter {
 public:
-    virtual ~RDataFormatter() = default;
-    virtual std::string format(const RDataFormatContext& ctx) const = 0;
+  virtual ~RDataFormatter() = default;
+  virtual std::string format(const RDataFormatContext &ctx) const = 0;
 };
 
 using RDataFormatterPtr = std::shared_ptr<RDataFormatter>;
@@ -33,7 +33,7 @@ using RDataFormatterPtr = std::shared_ptr<RDataFormatter>;
  */
 class ARecordFormatter : public RDataFormatter {
 public:
-    std::string format(const RDataFormatContext& ctx) const override;
+  std::string format(const RDataFormatContext &ctx) const override;
 };
 
 /**
@@ -42,7 +42,7 @@ public:
  */
 class AAAARecordFormatter : public RDataFormatter {
 public:
-    std::string format(const RDataFormatContext& ctx) const override;
+  std::string format(const RDataFormatContext &ctx) const override;
 };
 
 /**
@@ -51,7 +51,7 @@ public:
  */
 class PTRRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const RDataFormatContext& ctx) const override;
+  std::string format(const RDataFormatContext &ctx) const override;
 };
 
 /**
@@ -60,7 +60,7 @@ public:
  */
 class SRVRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const RDataFormatContext& ctx) const override;
+  std::string format(const RDataFormatContext &ctx) const override;
 };
 
 /**
@@ -69,7 +69,7 @@ public:
  */
 class TXTRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const RDataFormatContext& ctx) const override;
+  std::string format(const RDataFormatContext &ctx) const override;
 };
 
 /**
@@ -78,13 +78,15 @@ public:
  */
 class GenericRecordFormatter : public RDataFormatter {
 public:
-    std::string format(const RDataFormatContext& ctx) const override;
+  std::string format(const RDataFormatContext &ctx) const override;
 };
 
 /**
- * @brief Factory function to get the appropriate formatter for a DNS record type.
+ * @brief Factory function to get the appropriate formatter for a DNS record
+ * type.
  *
  * @param type DNS record type code (1=A, 28=AAAA, 12=PTR, 33=SRV, 16=TXT, etc.)
- * @return Formatter instance for the given type, or GenericRecordFormatter if unknown.
+ * @return Formatter instance for the given type, or GenericRecordFormatter if
+ * unknown.
  */
 RDataFormatterPtr get_rdata_formatter(uint16_t type);

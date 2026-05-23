@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
-#include <vector>
 #include <cstdint>
 #include <netinet/in.h>
+#include <string>
 #include <system_error>
+#include <vector>
 
 /**
  * @brief Simple RAII UDP socket wrapper.
@@ -15,61 +15,64 @@
  */
 class NetworkSocket {
 private:
-    int sock_fd;
+  int sock_fd;
 
-    /**
-     * @brief Helper to safely close socket and clean up on error.
-     *
-     * @param err_msg Error message for exception.
-     */
-    void cleanup_and_throw(const char* err_msg);
+  /**
+   * @brief Helper to safely close socket and clean up on error.
+   *
+   * @param err_msg Error message for exception.
+   */
+  void cleanup_and_throw(const char *err_msg);
 
 public:
-    /**
-     * @brief Construct a new NetworkSocket object.
-     */
-    NetworkSocket();
+  /**
+   * @brief Construct a new NetworkSocket object.
+   */
+  NetworkSocket();
 
-    /**
-     * @brief Destroy the NetworkSocket object and close the socket if open.
-     */
-    ~NetworkSocket();
+  /**
+   * @brief Destroy the NetworkSocket object and close the socket if open.
+   */
+  ~NetworkSocket();
 
-    // Prevent copying because this manages a raw OS resource (RAII principle)
-    NetworkSocket(const NetworkSocket&) = delete;
-    NetworkSocket& operator=(const NetworkSocket&) = delete;
+  // Prevent copying because this manages a raw OS resource (RAII principle)
+  NetworkSocket(const NetworkSocket &) = delete;
+  NetworkSocket &operator=(const NetworkSocket &) = delete;
 
-    /**
-     * @param interface_ipv4 Optional local IPv4 for multicast egress (IP_MULTICAST_IF).
-     *        Membership join always uses INADDR_ANY so ingress works on multi-homed/WSL hosts.
-     */
-    void bind_multicast(uint16_t port, const std::string& multicast_ip,
-                        const std::string& interface_ipv4 = "");
+  /**
+   * @param interface_ipv4 Optional local IPv4 for multicast egress
+   * (IP_MULTICAST_IF). Membership join always uses INADDR_ANY so ingress works
+   * on multi-homed/WSL hosts.
+   */
+  void bind_multicast(uint16_t port, const std::string &multicast_ip,
+                      const std::string &interface_ipv4 = "");
 
-    /**
-     * @brief Send a UDP packet to the specified destination.
-     *
-     * @param data Byte vector containing the payload to send.
-     * @param dest_ip Destination IPv4 address (dotted decimal).
-     * @param dest_port Destination UDP port (host byte order).
-     */
-    ssize_t send_packet(const std::vector<uint8_t>& data, const std::string& dest_ip, uint16_t dest_port);
+  /**
+   * @brief Send a UDP packet to the specified destination.
+   *
+   * @param data Byte vector containing the payload to send.
+   * @param dest_ip Destination IPv4 address (dotted decimal).
+   * @param dest_port Destination UDP port (host byte order).
+   */
+  ssize_t send_packet(const std::vector<uint8_t> &data,
+                      const std::string &dest_ip, uint16_t dest_port);
 
-    /**
-     * @brief Receive a UDP packet into the provided buffer and capture sender IP.
-     *
-     * The buffer will be resized to the received payload length on success.
-     *
-     * @param buffer Vector to receive payload into.
-     * @param sender_ip Output parameter set to the sender's dotted IPv4 address.
-     * @return ssize_t Number of bytes received.
-     */
-    ssize_t receive_packet(std::vector<uint8_t>& buffer, std::string& sender_ip);
+  /**
+   * @brief Receive a UDP packet into the provided buffer and capture sender IP.
+   *
+   * The buffer will be resized to the received payload length on success.
+   *
+   * @param buffer Vector to receive payload into.
+   * @param sender_ip Output parameter set to the sender's dotted IPv4 address.
+   * @return ssize_t Number of bytes received.
+   */
+  ssize_t receive_packet(std::vector<uint8_t> &buffer, std::string &sender_ip);
 
-    /**
-     * @brief Set the receive timeout for the underlying socket.
-     *
-     * @param milliseconds Timeout in milliseconds (0 disables timeout and sets blocking mode).
-     */
-    void set_receive_timeout(uint32_t milliseconds);
+  /**
+   * @brief Set the receive timeout for the underlying socket.
+   *
+   * @param milliseconds Timeout in milliseconds (0 disables timeout and sets
+   * blocking mode).
+   */
+  void set_receive_timeout(uint32_t milliseconds);
 };
