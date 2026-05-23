@@ -59,6 +59,7 @@ std::string host_label(const ResourceRecordView &rec) {
     if (MdnsNames::ends_with(rec.owner_name, ".local")) {
       return rec.owner_name;
     }
+<<<<<<< HEAD
     return rec.owner_name + " (" + rec.rdata_text + ")";
   }
   if (rec.type == DnsType::TXT &&
@@ -66,4 +67,17 @@ std::string host_label(const ResourceRecordView &rec) {
     return rec.owner_name;
   }
   return {};
+=======
+    if (rec.type == DnsType::A || rec.type == DnsType::AAAA) {
+        if (MdnsNames::ends_with(rec.owner_name, ".local")) {
+            return rec.owner_name;
+        }
+        return rec.owner_name + " (" + rec.rdata_text + ")";
+    }
+    if (rec.type == DnsType::TXT && MdnsNames::ends_with(rec.owner_name, ".local") &&
+        !MdnsNames::has_mdns_service_suffix(rec.owner_name)) {
+        return rec.owner_name;
+    }
+    return {};
+>>>>>>> 7ec98dc (JL: TXT replicating fix)
 }
