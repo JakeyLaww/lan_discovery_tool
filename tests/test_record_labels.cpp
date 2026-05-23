@@ -32,17 +32,6 @@ void test_txt_plain_local_host_label() {
 }
 
 int main() {
-<<<<<<< HEAD
-  std::cout << "Running record labels tests..." << std::endl << std::endl;
-  try {
-    test_srv_service_label_uses_instance();
-    std::cout << std::endl << "✓ All record labels tests passed!" << std::endl;
-    return 0;
-  } catch (const std::exception &ex) {
-    std::cerr << "✗ Record labels test failed: " << ex.what() << std::endl;
-    return 1;
-  }
-=======
   std::cout << "Running record labels tests..." << std::endl << std::endl;
   try {
     test_srv_service_label_uses_instance();
@@ -54,5 +43,4 @@ int main() {
     std::cerr << "✗ Record labels test failed: " << ex.what() << std::endl;
     return 1;
   }
->>>>>>> 7ec98dc (JL: TXT replicating fix)
 }
