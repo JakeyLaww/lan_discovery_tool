@@ -3,33 +3,37 @@
 [![Build and Test](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/build-and-test.yml)
 [![CodeQL Analysis](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/codeql-analysis.yml)
 
-`mDNS scanner`:
+Discover **mDNS-advertising** hosts and services on your home LAN, persist observations to SQLite, and build toward change detection and an approved device registry. 
 
-- Periodically browses `_services._dns-sd._udp.local` (meta browse)
-- Follow-up probes per RFC 6763: service-type PTR, then instance SRV/TXT
-- Listens for multicast responses
-- Prints Bonjour-relevant PTR/SRV/TXT/A records to the console (services, instances, `.local` hosts—not reverse DNS or Kerberos TXT)
-- Change detection suppresses duplicate lines for unchanged records
-- Per-record `ttl` and `last_seen`; `device` summary when a host’s mDNS profile changes
+This is a home-lab visibility tool, not a full network audit. It only sees devices that announce via mDNS while the scanner is running.
 
+## Components
+
+| Component | Role | Location |
+|-----------|------|----------|
+| **mDNS Scanner** | Multicast browse, follow-up probes, stdout logging; POSTs changes to the API when configured | `build/scanner` |
+| **Discovery API** | Ingest discovery events, serve device list (FastAPI) | [`api/`](api/) |
+| **SQLite database** | Devices, services, and an append-only audit log | `api/data/lan.db` (local) or Docker volume |
+
+The scanner never opens the database directly. Only the Discovery API reads and writes SQLite.
 
 ## Build
 
-```bash
-./scripts/build.sh          # incremental (fast day-to-day)
-./scripts/build.sh --clean  # wipe build/ and full rebuild
-./scripts/build.sh --reset-db   # delete api/data/lan.db (opt-in; fresh DB on next API start)
-```
-
-## Run
+From the repository root:
 
 ```bash
-./build/scanner
+./scripts/build.sh           # incremental configure, build, and ctest
+./scripts/build.sh --clean   # wipe build/ and full rebuild
+./scripts/build.sh --reset-db  # delete api/data/lan.db (fresh DB on next API start)
 ```
 
-### Phase 2: scanner + API
+Output: `build/scanner`
 
-Terminal 1 — API (see [api/README.md](api/README.md)):
+## Run locally
+
+### Full stack (scanner + Discovery API)
+
+**Terminal 1: Discovery API:**
 
 ```bash
 cd api && python3 -m venv .venv && source .venv/bin/activate
@@ -37,62 +41,107 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Terminal 2 — scanner with persistence:
+See [`api/README.md`](api/README.md) for API environment variables and endpoints.
+
+**Terminal 2: mDNS Scanner with persistence:**
 
 ```bash
 ./build/scanner --api-url http://127.0.0.1:8000
 ```
 
-Stdout discovery lines still print. Only **new/changed** records are POSTed.
+Discovery lines still print to stdout. Only **new or changed** records are POSTed to the API.
 
-| Env / flag | Purpose |
-|------------|---------|
-| `LAN_API_URL` / `--api-url <base>` | API base URL (CLI wins); posts to `/v1/discovery/events` |
-| `LAN_API_TOKEN` / `--api-token` | Optional `X-API-Key` when API has `LAN_API_TOKEN` set |
-
-Docker: [deploy/README.md](deploy/README.md).
-
-**Inspect or reset SQLite** (local dev DB, includes audit log not exposed by the API):
+### Scanner only
 
 ```bash
-python3 scripts/lan_db.py dump
-python3 scripts/lan_db.py reset    # or ./scripts/build.sh --reset-db before building
+./build/scanner
 ```
 
-### CLI options for `scanner`
+Console output only (no persistance)
+
+### Scanner options
 
 | Flag | Effect |
 |------|--------|
 | (default) | Log level INFO |
 | `-d`, `--debug` | DEBUG diagnostics (broadcasts, ignored queries) |
 | `-q`, `--quiet` | WARN and ERROR only |
-| `-v`, `--verbose` | Wire hex dumps (use with `-d`) |
-| `-I`, `-i`, `--interface <name>` | Pin multicast send/receive to one NIC (e.g. `eth0`) |
+| `-v`, `--verbose` | Wire-level hex dumps (use with `-d`) |
+| `-I`, `-i`, `--interface <name>` | Bind multicast to one NIC (e.g. `eth0`) |
 | `--max-probes-per-tick <n>` | Follow-up mDNS probes per poll tick (default 8) |
-| `--probe-cooldown-ms <ms>` | Minimum ms before re-probing the same name (default 60000) |
-| `--api-url <base>` | POST discovery changes to API (`LAN_API_URL`) |
-| `--api-token <key>` | Optional `X-API-Key` (`LAN_API_TOKEN`) |
+| `--probe-cooldown-ms <ms>` | Min ms before re-probing the same name (default 60000) |
+| `--api-url <base>` | POST discovery changes to Discovery API |
+| `--api-token <key>` | Optional `X-API-Key` header |
 | `-h`, `--help` | Usage |
 
 On startup the scanner logs **local IPv4 interfaces** for diagnostics.
 
+### Configuration (scanner ↔ API)
+
+| Env / flag | Purpose |
+|------------|---------|
+| `LAN_API_URL` / `--api-url <base>` | API base URL (CLI wins); posts to `/v1/discovery/events` |
+| `LAN_API_TOKEN` / `--api-token` | Shared secret for `X-API-Key` when the API has `LAN_API_TOKEN` set |
+
+### Database utilities
+
+Inspect or reset the local SQLite file (includes the audit log, which is not exposed via GET endpoints):
+
+```bash
+python3 scripts/lan_db.py dump
+python3 scripts/lan_db.py reset   # stop uvicorn first if the file is locked
+```
+
+Honors `LAN_DB_PATH` when set (same as the Discovery API).
+
+## Run with Docker
+
+From the repository root:
+
+```bash
+./scripts/compose_up.sh
+./scripts/compose_up.sh --reset-db   # stop stack, remove SQLite volume, rebuild
+```
+
+- Discovery API: http://127.0.0.1:8000
+- Scanner uses **host networking** for mDNS multicast on Linux
+
+Details: [`deploy/README.md`](deploy/README.md)
 
 ## Architecture
 
-- `DiscoveryEngine`: threads, meta browse, `MdnsProbePlanner` follow-up queue; delegates receive buffering to `PacketReceiveQueue`
-- `PacketReceiveQueue`: bounded thread-safe packet deque with drop accounting
-- `MdnsProbePlanner`: schedules service/instance probes (worker enqueues, poller sends)
-- `NetworkSocket`: multicast bind, optional interface, loopback off
-- `MdnsPacketInterpreter`: decode; skip DNS queries (QR=0); `RecordFilter` selects displayable records
-- `DeviceStateStore` + `ChangeFilteredEventSink`: suppress duplicate identical records (`filter_unseen`)
-- `DeviceRegistry` + `DeviceSummaryEventSink`: aggregate by `src_ip`, log device block on change
-- `StdoutEventSink`: human-readable discovery lines
-- `HttpEventSink` + `CompositeEventSink`: POST JSON on change when `--api-url` is set (bounded queue, retry)
-- **API** (`api/`): FastAPI + SQLite — devices, services, discovery event audit log
+```mermaid
+flowchart LR
+  Scanner[mDNS Scanner] -->|"POST JSON on change"| API[Discovery API]
+  API --> DB[(SQLite)]
+  Dashboard[Future dashboard] -.->|"read only"| API
+```
 
-## Tests
+**Scanner (C++)**
+
+- `DiscoveryEngine`: threaded meta browse, receive loop, periodic probes via `MdnsProbePlanner`
+- `MdnsPacketInterpreter` + `RecordFilter`: decode responses; emit PTR/SRV/TXT/A for Bonjour-relevant records
+- Event pipeline: `ChangeFilteredEventSink` (dedupe) → `DeviceSummaryEventSink` + `StdoutEventSink`; optional `HttpEventSink` when `--api-url` is set
+
+**Discovery API (Python)**
+
+- FastAPI routes → repository layer → SQLite (WAL mode)
+- Upsert devices by `src_ip`; track services and append-only `discovery_events` audit rows
+
+## Testing
 
 ```bash
-ctest --test-dir build
+./scripts/build.sh                    # runs ctest (C++ unit tests)
 cd api && source .venv/bin/activate && pytest tests/ -v
+```
+
+## Repository layout
+
+```
+api/          Discovery API (FastAPI) + migrations
+deploy/       Docker Compose and scanner image
+scripts/      build.sh, compose_up.sh, lan_db.py
+include/      C++ headers
+src/          C++ scanner and libraries
+tests/        C++ unit tests
 ```
