@@ -15,5 +15,5 @@ struct HttpEventSinkConfig {
 
 HttpEventSinkConfig make_http_sink_config(const ApiConfig &api);
 
-std::shared_ptr<EventSink>
-make_http_event_sink(HttpEventSinkConfig config, std::shared_ptr<Logger> logger);
+std::shared_ptr<EventSink> make_http_event_sink(HttpEventSinkConfig config,
+                                                std::shared_ptr<Logger> logger);

@@ -25,8 +25,7 @@ void test_json_srv_includes_service_and_host() {
   ev.src_ip = "192.168.1.10";
   ev.records.push_back(ResourceRecordView{
       "Living Room._airplay._tcp.local", DnsType::SRV,
-      "priority=0 weight=0 port=7000 target=tv.local", 120,
-      1'700'000'000'123});
+      "priority=0 weight=0 port=7000 target=tv.local", 120, 1'700'000'000'123});
 
   const std::string json = to_json(ev);
   assert(json.find("\"type_name\":\"SRV\"") != std::string::npos);

@@ -7,8 +7,8 @@
 #include "event_sink/DeviceSummaryEventSink.hpp"
 #include "event_sink/HttpEventSink.hpp"
 #include "event_sink/StdoutEventSink.hpp"
-#include "scanner/ApiConfig.hpp"
 #include "log/ThreadSafeLogger.hpp"
+#include "scanner/ApiConfig.hpp"
 #include <csignal>
 #include <cstdlib>
 #include <cstring>

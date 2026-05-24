@@ -199,7 +199,7 @@ private:
       return false;
     }
 
-    httplib::Headers headers = {{"Content-Type", "application/json"}};
+    httplib::Headers headers = {{ "Content-Type", "application/json" }};
     if (!config_.api_token.empty()) {
       headers.emplace("X-API-Key", config_.api_token);
     }

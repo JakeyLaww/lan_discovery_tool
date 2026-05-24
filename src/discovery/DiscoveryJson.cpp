@@ -44,9 +44,9 @@ std::string to_json(const DiscoveryEvent &ev) {
     const auto &r = ev.records[i];
     oss << "{\"owner_name\":\"" << json_escape(r.owner_name) << "\""
         << ",\"type\":" << r.type << ",\"type_name\":\""
-        << json_escape(dns_type_name(r.type)) << "\""
-        << ",\"rdata_text\":\"" << json_escape(r.rdata_text) << "\""
-        << ",\"ttl\":" << r.ttl << ",\"last_seen_ms\":" << r.observed_at_ms;
+        << json_escape(dns_type_name(r.type)) << "\"" << ",\"rdata_text\":\""
+        << json_escape(r.rdata_text) << "\"" << ",\"ttl\":" << r.ttl
+        << ",\"last_seen_ms\":" << r.observed_at_ms;
     const std::string service = service_label(r);
     if (!service.empty()) {
       oss << ",\"service\":\"" << json_escape(service) << "\"";
