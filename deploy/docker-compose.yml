@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: ../api
+    ports:
+      - "8000:8000"
+    environment:
+      LAN_DB_PATH: /data/lan.db
+      # LAN_API_TOKEN: "change-me"
+    volumes:
+      - lan_db:/data
+
+  scanner:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.scanner
+    depends_on:
+      - api
+    environment:
+      LAN_API_URL: http://api:8000
+      # LAN_API_TOKEN: "change-me"
+    network_mode: host
+    # Linux: host networking is required for mDNS multicast on the LAN NIC.
+
+volumes:
+  lan_db:

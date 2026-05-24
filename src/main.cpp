@@ -3,8 +3,11 @@
 #include "discovery/DeviceRegistry.hpp"
 #include "discovery/MdnsProbePlanner.hpp"
 #include "event_sink/ChangeFilteredEventSink.hpp"
+#include "event_sink/CompositeEventSink.hpp"
 #include "event_sink/DeviceSummaryEventSink.hpp"
+#include "event_sink/HttpEventSink.hpp"
 #include "event_sink/StdoutEventSink.hpp"
+#include "scanner/ApiConfig.hpp"
 #include "log/ThreadSafeLogger.hpp"
 #include <csignal>
 #include <cstdlib>
@@ -43,6 +46,9 @@ static void print_usage(const char *prog) {
                "(default 8)\n"
             << "  --probe-cooldown-ms <ms>   Min ms before re-probing same "
                "name (default 60000)\n"
+            << "  --api-url <base>  POST discovery changes to API "
+               "(LAN_API_URL)\n"
+            << "  --api-token <key> Optional X-API-Key (LAN_API_TOKEN)\n"
             << "  -h, --help     Show this help\n"
             << "\nDefault log level is INFO. Discovery lines print on "
                "new/changed records.\n";
@@ -101,10 +107,20 @@ int main(int argc, char *argv[]) {
     engine.set_interface(iface);
   auto device_registry = std::make_shared<DeviceRegistry>();
   auto stdout_sink = make_stdout_event_sink(logger);
-  auto summary_sink =
+  auto console_chain =
       make_device_summary_event_sink(device_registry, logger, stdout_sink);
+
+  const ApiConfig api_config = load_api_config(argc, argv);
+  EventSinkPtr output_sink = console_chain;
+  if (api_config.has_url()) {
+    const HttpEventSinkConfig http_config = make_http_sink_config(api_config);
+    auto http_sink = make_http_event_sink(http_config, logger);
+    output_sink = make_composite_event_sink({console_chain, http_sink});
+    logger->info("HTTP event sink enabled: " + http_config.post_url);
+  }
+
   engine.set_event_sink(
-      make_change_filtered_event_sink(device_store, summary_sink));
+      make_change_filtered_event_sink(device_store, output_sink));
 
   bool ok = engine.run(5000, []() { return g_shutdown_requested != 0; });
   return ok ? 0 : 1;

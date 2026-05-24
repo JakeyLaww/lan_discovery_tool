@@ -21,11 +21,43 @@ On WSL2, use mirrored networking (`networkingMode=mirrored` in `.wslconfig`, the
 ./scripts/build.sh --clean  # wipe build/ and full rebuild
 ```
 
+**HTTP client (scanner → API):** prefers system **libcurl** when `libcurl4-openssl-dev` is installed; otherwise uses bundled `third_party/httplib.h` (HTTP only; HTTPS needs libcurl).
+
+```bash
+# Ubuntu/Debian (optional, enables libcurl + HTTPS API URLs)
+sudo apt-get install -y libcurl4-openssl-dev
+```
+
 ## Run
 
 ```bash
 ./build/scanner
 ```
+
+### Phase 2: scanner + API
+
+Terminal 1 — API (see [api/README.md](api/README.md)):
+
+```bash
+cd api && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Terminal 2 — scanner with persistence:
+
+```bash
+./build/scanner --api-url http://127.0.0.1:8000
+```
+
+Stdout discovery lines still print. Only **new/changed** records are POSTed.
+
+| Env / flag | Purpose |
+|------------|---------|
+| `LAN_API_URL` / `--api-url <base>` | API base URL (CLI wins); posts to `/v1/discovery/events` |
+| `LAN_API_TOKEN` / `--api-token` | Optional `X-API-Key` when API has `LAN_API_TOKEN` set |
+
+Docker: [deploy/README.md](deploy/README.md).
 
 ### CLI options
 
@@ -38,6 +70,8 @@ On WSL2, use mirrored networking (`networkingMode=mirrored` in `.wslconfig`, the
 | `-I`, `-i`, `--interface <name>` | Pin multicast send/receive to one NIC (e.g. `eth0`) |
 | `--max-probes-per-tick <n>` | Follow-up mDNS probes per poll tick (default 8) |
 | `--probe-cooldown-ms <ms>` | Minimum ms before re-probing the same name (default 60000) |
+| `--api-url <base>` | POST discovery changes to API (`LAN_API_URL`) |
+| `--api-token <key>` | Optional `X-API-Key` (`LAN_API_TOKEN`) |
 | `-h`, `--help` | Usage |
 
 On startup the scanner logs **local IPv4 interfaces** for diagnostics.
@@ -53,9 +87,12 @@ On startup the scanner logs **local IPv4 interfaces** for diagnostics.
 - `DeviceStateStore` + `ChangeFilteredEventSink`: suppress duplicate identical records (`filter_unseen`)
 - `DeviceRegistry` + `DeviceSummaryEventSink`: aggregate by `src_ip`, log device block on change
 - `StdoutEventSink`: human-readable discovery lines
+- `HttpEventSink` + `CompositeEventSink`: POST JSON on change when `--api-url` is set (bounded queue, retry)
+- **API** (`api/`): FastAPI + SQLite — devices, services, discovery event audit log
 
 ## Tests
 
 ```bash
 ctest --test-dir build
+cd api && source .venv/bin/activate && pytest tests/ -v
 ```

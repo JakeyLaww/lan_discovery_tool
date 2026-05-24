@@ -1,4 +1,6 @@
 #include "discovery/DiscoveryTypes.hpp"
+#include "discovery/RecordLabels.hpp"
+#include "mdns/DnsTypes.hpp"
 #include <sstream>
 
 namespace {
@@ -41,9 +43,19 @@ std::string to_json(const DiscoveryEvent &ev) {
       oss << ',';
     const auto &r = ev.records[i];
     oss << "{\"owner_name\":\"" << json_escape(r.owner_name) << "\""
-        << ",\"type\":" << r.type << ",\"rdata_text\":\""
-        << json_escape(r.rdata_text) << "\"" << ",\"ttl\":" << r.ttl
-        << ",\"last_seen_ms\":" << r.observed_at_ms << "}";
+        << ",\"type\":" << r.type << ",\"type_name\":\""
+        << json_escape(dns_type_name(r.type)) << "\""
+        << ",\"rdata_text\":\"" << json_escape(r.rdata_text) << "\""
+        << ",\"ttl\":" << r.ttl << ",\"last_seen_ms\":" << r.observed_at_ms;
+    const std::string service = service_label(r);
+    if (!service.empty()) {
+      oss << ",\"service\":\"" << json_escape(service) << "\"";
+    }
+    const std::string host = host_label(r);
+    if (!host.empty()) {
+      oss << ",\"host\":\"" << json_escape(host) << "\"";
+    }
+    oss << '}';
   }
   oss << "]}";
   return oss.str();

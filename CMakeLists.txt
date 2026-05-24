@@ -40,17 +40,35 @@ add_library(lan_discovery STATIC ${LAN_DISCOVERY_SOURCES})
 target_link_libraries(lan_discovery PUBLIC lan_mdns)
 target_include_directories(lan_discovery PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
+find_package(CURL QUIET)
+if(CURL_FOUND)
+  set(LAN_HTTP_BACKEND "curl")
+else()
+  set(LAN_HTTP_BACKEND "httplib")
+endif()
+
 add_executable(scanner
     src/main.cpp
     src/NetworkSocket.cpp
     src/DiscoveryEngine.cpp
     src/util/InterfaceInfo.cpp
+    src/scanner/ApiConfig.cpp
     src/event_sink/StdoutEventSink.cpp
     src/event_sink/ChangeFilteredEventSink.cpp
     src/event_sink/DeviceSummaryEventSink.cpp
+    src/event_sink/CompositeEventSink.cpp
+    src/event_sink/HttpEventSink.cpp
 )
 
 target_link_libraries(scanner PRIVATE lan_discovery lan_mdns)
+if(LAN_HTTP_BACKEND STREQUAL "curl")
+  target_link_libraries(scanner PRIVATE CURL::libcurl)
+  target_compile_definitions(scanner PRIVATE LAN_HTTP_USE_CURL=1)
+else()
+  target_include_directories(scanner PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+  target_compile_definitions(scanner PRIVATE LAN_HTTP_USE_HTTPLIB=1)
+  target_link_libraries(scanner PRIVATE pthread)
+endif()
 target_include_directories(scanner PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 enable_testing()

@@ -26,11 +26,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install CMake and G++
-        run: sudo apt-get update && sudo apt-get install -y cmake g++
+      - name: Install build and API test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libcurl4-openssl-dev python3 python3-venv python3-pip
 
       - name: Clean build and ctest (all unit tests)
         run: ./scripts/build.sh --clean
 
       - name: Verify scanner CLI (--help, no network)
         run: ./build/scanner --help
+
+      - name: Python API tests
+        run: |
+          cd api
+          python3 -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+          .venv/bin/pytest tests/ -v
