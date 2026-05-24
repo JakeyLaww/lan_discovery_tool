@@ -12,20 +12,13 @@
 - Change detection suppresses duplicate lines for unchanged records
 - Per-record `ttl` and `last_seen`; `device` summary when a host’s mDNS profile changes
 
-On WSL2, use mirrored networking (`networkingMode=mirrored` in `.wslconfig`, then `wsl --shutdown`) so the scanner shares your Wi‑Fi subnet. mDNS only sees hosts that advertise while the scanner runs.
 
 ## Build
 
 ```bash
 ./scripts/build.sh          # incremental (fast day-to-day)
 ./scripts/build.sh --clean  # wipe build/ and full rebuild
-```
-
-**HTTP client (scanner → API):** prefers system **libcurl** when `libcurl4-openssl-dev` is installed; otherwise uses bundled `third_party/httplib.h` (HTTP only; HTTPS needs libcurl).
-
-```bash
-# Ubuntu/Debian (optional, enables libcurl + HTTPS API URLs)
-sudo apt-get install -y libcurl4-openssl-dev
+./scripts/build.sh --reset-db   # delete api/data/lan.db (opt-in; fresh DB on next API start)
 ```
 
 ## Run
@@ -59,7 +52,14 @@ Stdout discovery lines still print. Only **new/changed** records are POSTed.
 
 Docker: [deploy/README.md](deploy/README.md).
 
-### CLI options
+**Inspect or reset SQLite** (local dev DB, includes audit log not exposed by the API):
+
+```bash
+python3 scripts/lan_db.py dump
+python3 scripts/lan_db.py reset    # or ./scripts/build.sh --reset-db before building
+```
+
+### CLI options for `scanner`
 
 | Flag | Effect |
 |------|--------|

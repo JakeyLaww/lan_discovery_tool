@@ -29,6 +29,18 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 | `LAN_HOST` | `127.0.0.1` | Bind host (for reference; pass to uvicorn) |
 | `LAN_PORT` | `8000` | Bind port (for reference) |
 
+## Database (dev)
+
+Inspect or wipe the SQLite file without raw `sqlite3`:
+
+```bash
+# from repo root
+python3 scripts/lan_db.py dump
+python3 scripts/lan_db.py reset
+```
+
+Honors `LAN_DB_PATH` (same as the API). After `reset`, restart uvicorn; migrations run on startup.
+
 ## Endpoints
 
 - `GET /health` — liveness

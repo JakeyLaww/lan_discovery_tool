@@ -10,12 +10,23 @@ Phase 2 compose stack: API + headless scanner.
 ## Run
 
 ```bash
-cd deploy
-docker compose up --build
+# from repo root (recommended)
+./scripts/compose_up.sh
+
+# or manually
+cd deploy && docker compose up --build
 ```
 
 - API: http://127.0.0.1:8000 (`GET /health`, `GET /v1/devices`)
 - SQLite volume: `lan_db` → `/data/lan.db` in the API container
+
+**Fresh stack (wipe SQLite volume and rebuild):**
+
+```bash
+./scripts/compose_up.sh --reset-db
+```
+
+Inspect the DB inside the API container: `docker compose -f deploy/docker-compose.yml exec api python3 -c "..."` or copy `/data/lan.db` out; for local dev use `python3 scripts/lan_db.py dump` against `api/data/lan.db`.
 
 ## Scanner networking
 
