@@ -5,8 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings
-from app.db import apply_migrations, connect
+from app.db import connect, ensure_database
 from app.main import app
+from app.security_policy import ALERT_BASELINE_MISMATCH, ALERT_UNKNOWN_DEVICE
 
 
 @pytest.fixture
@@ -15,7 +16,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(settings, "db_path", db_path)
     monkeypatch.setattr(settings, "api_token", None)
     conn = connect(db_path)
-    apply_migrations(conn)
+    ensure_database(conn)
     conn.close()
     with TestClient(app) as test_client:
         yield test_client
@@ -60,7 +61,7 @@ def test_list_devices_after_ingest(client: TestClient) -> None:
     assert len(devices) == 1
     assert devices[0]["src_ip"] == "192.168.1.10"
     assert devices[0]["mdns_host"] == "tv.local"
-    assert "Living Room._airplay._tcp.local" in devices[0]["services"]
+    assert "_airplay._tcp.local" in devices[0]["services"]
 
 
 def test_auth_required_when_token_set(
@@ -83,3 +84,61 @@ def test_empty_records_rejected(client: TestClient) -> None:
         json={"timestamp_ms": 1, "src_ip": "10.0.0.1", "records": []},
     )
     assert resp.status_code == 400
+
+
+def test_patch_approve_device(client: TestClient) -> None:
+    client.post("/v1/discovery/events", json=_sample_payload())
+    devices = client.get("/v1/devices").json()
+    device_id = devices[0]["device_id"]
+    resp = client.patch(
+        f"/v1/devices/{device_id}",
+        json={"display_name": "TV"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "APPROVED"
+    assert body["display_name"] == "TV"
+
+
+def test_get_alerts_after_ingest(client: TestClient) -> None:
+    client.post("/v1/discovery/events", json=_sample_payload())
+    resp = client.get("/v1/alerts")
+    assert resp.status_code == 200
+    alerts = resp.json()
+    assert len(alerts) >= 1
+    assert alerts[0]["alert_type"] == ALERT_UNKNOWN_DEVICE
+
+
+def test_integration_rename_triggers_baseline_mismatch(client: TestClient) -> None:
+    client.post("/v1/discovery/events", json=_sample_payload())
+    device_id = client.get("/v1/devices").json()[0]["device_id"]
+    client.patch(f"/v1/devices/{device_id}", json={})
+
+    renamed = _sample_payload()
+    renamed["records"][0]["host"] = "renamed-tv.local"
+    client.post("/v1/discovery/events", json=renamed)
+
+    resp = client.get("/v1/alerts", params={"alert_type": ALERT_BASELINE_MISMATCH})
+    assert resp.status_code == 200
+    alerts = resp.json()
+    assert len(alerts) == 1
+
+
+def test_patch_auth_when_token_set(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "api_token", "secret")
+    client.post(
+        "/v1/discovery/events",
+        json=_sample_payload(),
+        headers={"X-API-Key": "secret"},
+    )
+    device_id = client.get("/v1/devices").json()[0]["device_id"]
+    resp = client.patch(f"/v1/devices/{device_id}", json={})
+    assert resp.status_code == 401
+    resp = client.patch(
+        f"/v1/devices/{device_id}",
+        json={},
+        headers={"X-API-Key": "secret"},
+    )
+    assert resp.status_code == 200

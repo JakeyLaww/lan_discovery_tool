@@ -16,6 +16,7 @@ class DiscoveryEventIn(BaseModel):
     timestamp_ms: int
     src_ip: str
     records: list[DiscoveryRecordIn] = Field(default_factory=list)
+    mac: str | None = None
 
 
 class DiscoveryAcceptedOut(BaseModel):
@@ -31,6 +32,7 @@ class DeviceOut(BaseModel):
     src_ip: str
     mdns_host: str | None = None
     mac: str | None = None
+    display_name: str | None = None
     status: str
     first_seen_ms: int
     last_seen_ms: int
@@ -39,3 +41,18 @@ class DeviceOut(BaseModel):
 
 class DeviceDetailOut(DeviceOut):
     pass
+
+
+class DeviceApproveIn(BaseModel):
+    display_name: str | None = None
+
+
+class AlertOut(BaseModel):
+    alert_id: str
+    device_id: str
+    alert_type: str
+    message: str
+    severity: str
+    observed_at_ms: int
+    dedupe_key: str
+    resolved_at_ms: int | None = None
