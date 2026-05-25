@@ -1,5 +1,6 @@
 #include "event_sink/HttpEventSink.hpp"
 #include "discovery/DiscoveryTypes.hpp"
+#include "discovery/MacResolver.hpp"
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -136,7 +137,8 @@ private:
   }
 
   bool post_once(const DiscoveryEvent &ev) {
-    const std::string body = to_json(ev);
+    const auto mac = MacResolver::lookup(ev.src_ip);
+    const std::string body = to_json(ev, mac);
 
 #if defined(LAN_HTTP_USE_CURL)
     CURL *curl = curl_easy_init();

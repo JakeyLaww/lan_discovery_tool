@@ -27,6 +27,7 @@ set(LAN_DISCOVERY_SOURCES
     src/discovery/RecordLabels.cpp
     src/discovery/DiscoveryRecord.cpp
     src/discovery/DiscoveryJson.cpp
+    src/discovery/MacResolver.cpp
     src/discovery/MdnsProbePlanner.cpp
     src/discovery/DeviceRegistry.cpp
     src/discovery/RecordFilter.cpp

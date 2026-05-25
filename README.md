@@ -3,7 +3,7 @@
 [![Build and Test](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/build-and-test.yml)
 [![CodeQL Analysis](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/JakeyLaww/lan_discovery_tool/actions/workflows/codeql-analysis.yml)
 
-Discover **mDNS-advertising** hosts and services on your home LAN, persist observations to SQLite, and build toward change detection and an approved device registry. 
+Discover **mDNS-advertising** hosts and services on your home LAN, persist observations to SQLite, maintain an **approved device registry**, and raise alerts for unknown devices and baseline mismatches (hostname/service changes on approved devices). 
 
 This is a home-lab visibility tool, not a full network audit. It only sees devices that announce via mDNS while the scanner is running.
 
@@ -49,7 +49,9 @@ See [`api/README.md`](api/README.md) for API environment variables and endpoints
 ./build/scanner --api-url http://127.0.0.1:8000
 ```
 
-Discovery lines still print to stdout. Only **new or changed** records are POSTed to the API.
+Use `-d` only for troubleshooting (verbose mDNS diagnostics). For approve/alerts workflow see [`api/README.md`](api/README.md#manual-test-two-terminals).
+
+Discovery lines still print to stdout. Only **new or changed** records are POSTed to the API. The scanner may include `mac` in POST JSON when ARP resolves the source IP.
 
 ### Scanner only
 
@@ -125,8 +127,9 @@ flowchart LR
 
 **Discovery API (Python)**
 
-- FastAPI routes → repository layer → SQLite (WAL mode)
-- Upsert devices by `src_ip`; track services and append-only `discovery_events` audit rows
+- FastAPI routes → ingest orchestration → repository (SQLite, WAL mode)
+- MAC-first device identity (scanner ARP + API fallback); approve + baseline snapshots on **service types**; deduplicated security alerts
+- Upsert on discovery POST; append-only `discovery_events` audit trail
 
 ## Testing
 
@@ -138,7 +141,7 @@ cd api && source .venv/bin/activate && pytest tests/ -v
 ## Repository layout
 
 ```
-api/          Discovery API (FastAPI) + migrations
+api/          Discovery API (FastAPI) + schema.sql
 deploy/       Docker Compose and scanner image
 scripts/      build.sh, compose_up.sh, lan_db.py
 include/      C++ headers

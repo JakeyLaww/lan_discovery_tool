@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -18,4 +19,5 @@ struct DiscoveryEvent {
   std::vector<ResourceRecordView> records;
 };
 
-std::string to_json(const DiscoveryEvent &ev);
+std::string to_json(const DiscoveryEvent &ev,
+                    const std::optional<std::string> &mac = std::nullopt);

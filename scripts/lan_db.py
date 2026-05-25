@@ -13,7 +13,14 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_DB = _REPO_ROOT / "api" / "data" / "lan.db"
 _PAYLOAD_PREVIEW_LEN = 200
 
-_TABLES = ("schema_version", "devices", "services", "discovery_events")
+_TABLES = (
+    "schema_version",
+    "devices",
+    "services",
+    "discovery_events",
+    "device_baselines",
+    "alerts",
+)
 
 
 def resolve_db_path(explicit: Path | None) -> Path:

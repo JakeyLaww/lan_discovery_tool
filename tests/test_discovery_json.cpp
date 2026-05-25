@@ -2,6 +2,7 @@
 #include "mdns/DnsTypes.hpp"
 #include <cassert>
 #include <iostream>
+#include <optional>
 
 void test_json_includes_ttl_and_last_seen() {
   DiscoveryEvent ev;
@@ -36,11 +37,28 @@ void test_json_srv_includes_service_and_host() {
   std::cout << "  ✓ json SRV includes service and host passed" << std::endl;
 }
 
+void test_json_includes_mac_when_set() {
+  DiscoveryEvent ev;
+  ev.timestamp_ms = 1'700'000'000'000;
+  ev.src_ip = "192.168.1.10";
+  ev.records.push_back(ResourceRecordView{
+      "test.local", DnsType::A, "192.168.1.10", 120, 1'700'000'000'123});
+
+  const std::string json = to_json(ev, std::string("aa:bb:cc:dd:ee:ff"));
+  assert(json.find("\"mac\":\"aa:bb:cc:dd:ee:ff\"") != std::string::npos);
+
+  const std::string no_mac = to_json(ev, std::nullopt);
+  assert(no_mac.find("\"mac\"") == std::string::npos);
+
+  std::cout << "  ✓ json optional mac passed" << std::endl;
+}
+
 int main() {
   std::cout << "Running discovery JSON tests..." << std::endl << std::endl;
   try {
     test_json_includes_ttl_and_last_seen();
     test_json_srv_includes_service_and_host();
+    test_json_includes_mac_when_set();
     std::cout << std::endl << "✓ All discovery JSON tests passed!" << std::endl;
     return 0;
   } catch (const std::exception &ex) {

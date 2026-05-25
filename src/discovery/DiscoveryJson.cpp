@@ -34,10 +34,15 @@ std::string json_escape(const std::string &s) {
 
 } // namespace
 
-std::string to_json(const DiscoveryEvent &ev) {
+std::string to_json(const DiscoveryEvent &ev,
+                    const std::optional<std::string> &mac) {
   std::ostringstream oss;
   oss << "{\"timestamp_ms\":" << ev.timestamp_ms << ",\"src_ip\":\""
-      << json_escape(ev.src_ip) << "\"" << ",\"records\":[";
+      << json_escape(ev.src_ip) << "\"";
+  if (mac && !mac->empty()) {
+    oss << ",\"mac\":\"" << json_escape(*mac) << "\"";
+  }
+  oss << ",\"records\":[";
   for (size_t i = 0; i < ev.records.size(); ++i) {
     if (i > 0)
       oss << ',';
