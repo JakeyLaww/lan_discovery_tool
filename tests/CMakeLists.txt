@@ -25,6 +25,7 @@ lan_add_discovery_test(MacResolverTests test_mac_resolver test_mac_resolver.cpp)
 lan_add_discovery_test(DeviceStateStoreTests test_device_state_store
     test_device_state_store.cpp)
 
-add_executable(test_api_config test_api_config.cpp ../src/scanner/ApiConfig.cpp)
+add_executable(test_api_config test_api_config.cpp ../src/scanner/ApiConfig.cpp
+    ../src/scanner/CliArgs.cpp)
 target_include_directories(test_api_config PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME ApiConfigTests COMMAND test_api_config)

@@ -24,6 +24,7 @@ size_t curl_write_discard(char * /*ptr*/, size_t size, size_t nmemb,
 }
 #endif
 
+#if defined(LAN_HTTP_USE_HTTPLIB)
 bool parse_post_url(const std::string &post_url, std::string &scheme,
                     std::string &host, int &port, std::string &path) {
   const auto scheme_end = post_url.find("://");
@@ -49,6 +50,7 @@ bool parse_post_url(const std::string &post_url, std::string &scheme,
   }
   return !host.empty();
 }
+#endif
 
 } // namespace
 
