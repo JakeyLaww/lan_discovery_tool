@@ -13,6 +13,8 @@ int main() {
   assert(config.base_url == "http://example.com");
   assert(config.api_token == "tok");
   assert(config.has_url());
+  assert(discovery_events_post_url(config) ==
+         "http://example.com/v1/discovery/events");
 
   std::cout << "  ✓ api config CLI parsing passed" << std::endl;
   std::cout << std::endl << "✓ All api config tests passed!" << std::endl;

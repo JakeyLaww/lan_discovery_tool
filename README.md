@@ -59,7 +59,7 @@ Discovery lines still print to stdout. Only **new or changed** records are POSTe
 ./build/scanner
 ```
 
-Console output only (no persistance)
+Console output only (no persistence)
 
 ### Scanner options
 
@@ -122,7 +122,7 @@ flowchart LR
 **Scanner (C++)**
 
 - `DiscoveryEngine`: threaded meta browse, receive loop, periodic probes via `MdnsProbePlanner`
-- `MdnsPacketInterpreter` + `RecordFilter`: decode responses; emit PTR/SRV/TXT/A for Bonjour-relevant records
+- `MdnsPacketInterpreter`: decode responses; emit PTR/SRV/TXT/A for Bonjour-relevant records
 - Event pipeline: `ChangeFilteredEventSink` (dedupe) → `DeviceSummaryEventSink` + `StdoutEventSink`; optional `HttpEventSink` when `--api-url` is set
 
 **Discovery API (Python)**

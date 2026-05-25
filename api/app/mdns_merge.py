@@ -23,13 +23,6 @@ def mdns_host_from_event(event: DiscoveryEventIn) -> str | None:
     return host
 
 
-def service_keys_from_records(records: list[DiscoveryRecordIn]) -> list[str]:
-    """Bonjour service types only (aligned with C++ DeviceRegistry service_types)."""
-    from app.mdns_names import service_types_from_records
-
-    return service_types_from_records(records)
-
-
 def services_json(service_keys: list[str]) -> str:
     return json.dumps(service_keys)
 

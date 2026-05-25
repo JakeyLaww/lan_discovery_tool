@@ -30,7 +30,6 @@ set(LAN_DISCOVERY_SOURCES
     src/discovery/MacResolver.cpp
     src/discovery/MdnsProbePlanner.cpp
     src/discovery/DeviceRegistry.cpp
-    src/discovery/RecordFilter.cpp
     src/core/MdnsPacketInterpreter.cpp
     src/core/DeviceStateStore.cpp
     src/core/PacketReceiveQueue.cpp
@@ -54,6 +53,7 @@ add_executable(scanner
     src/DiscoveryEngine.cpp
     src/util/InterfaceInfo.cpp
     src/scanner/ApiConfig.cpp
+    src/scanner/CliArgs.cpp
     src/event_sink/StdoutEventSink.cpp
     src/event_sink/ChangeFilteredEventSink.cpp
     src/event_sink/DeviceSummaryEventSink.cpp

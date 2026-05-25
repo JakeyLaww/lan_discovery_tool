@@ -4,11 +4,11 @@ import time
 import uuid
 
 from app import mac_resolver, repository
+from app.mdns_names import service_types_from_records
 from app.mdns_merge import (
     mdns_host_from_event,
     merge_mdns_host,
     parse_services_json,
-    service_keys_from_records,
 )
 from app.models import DiscoveryEventIn
 from app.security_policy import (
@@ -160,7 +160,7 @@ def process_discovery_event(
     mac_hint = _resolve_mac_hint(event)
     device_id = resolve_device_id(conn, event, mac_hint)
 
-    service_keys = service_keys_from_records(event.records)
+    service_keys = service_types_from_records(event.records)
     repository.upsert_service_keys(conn, device_id, service_keys)
     _attach_mac_if_needed(conn, device_id, event.src_ip, event.mac)
 

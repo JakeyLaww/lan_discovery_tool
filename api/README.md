@@ -21,8 +21,8 @@ The **Discovery API** (FastAPI) ingests mDNS discovery events from the scanner a
 |----------|---------|-------------|
 | `LAN_DB_PATH` | `api/data/lan.db` | SQLite database file |
 | `LAN_API_TOKEN` | (unset) | If set, require `X-API-Key` on POST and PATCH |
-| `LAN_HOST` | `127.0.0.1` | Bind host (pass to uvicorn) |
-| `LAN_PORT` | `8000` | Bind port (pass to uvicorn) |
+| `LAN_HOST` | `127.0.0.1` | Bind host (`python -m app.main` or uvicorn) |
+| `LAN_PORT` | `8000` | Bind port (`python -m app.main` or uvicorn) |
 
 ## Manual test (two terminals)
 
@@ -30,8 +30,10 @@ The **Discovery API** (FastAPI) ingests mDNS discovery events from the scanner a
 
 ```bash
 cd api && source .venv/bin/activate
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m app.main
 ```
+
+Or: `uvicorn app.main:app --host 127.0.0.1 --port 8000` (honors `LAN_HOST` / `LAN_PORT` when using `python -m app.main`).
 
 **Terminal 2 — scanner** (INFO logs; add `-d` only when debugging):
 

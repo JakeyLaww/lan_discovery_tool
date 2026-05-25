@@ -74,7 +74,7 @@ bool DeviceRegistry::merge_records(DeviceSnapshot &snap,
         snap.mdns_host = host;
         profile_changed = true;
       }
-    } else if ((rec.type == DnsType::A || rec.type == DnsType::AAAA) &&
+    } else if (rec.type == DnsType::A &&
                MdnsNames::ends_with(rec.owner_name, ".local") &&
                snap.mdns_host.empty()) {
       snap.mdns_host = rec.owner_name;

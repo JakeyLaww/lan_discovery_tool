@@ -10,3 +10,6 @@ struct ApiConfig {
 };
 
 ApiConfig load_api_config(int argc, char *argv[]);
+
+/** POST target for discovery events (base URL without trailing slash). */
+std::string discovery_events_post_url(const ApiConfig &api);

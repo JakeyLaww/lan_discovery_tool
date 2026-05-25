@@ -22,6 +22,8 @@ lan_add_discovery_test(DiscoveryJsonTests test_discovery_json test_discovery_jso
 lan_add_discovery_test(MdnsNamesTests test_mdns_names test_mdns_names.cpp)
 lan_add_discovery_test(RecordLabelsTests test_record_labels test_record_labels.cpp)
 lan_add_discovery_test(MacResolverTests test_mac_resolver test_mac_resolver.cpp)
+lan_add_discovery_test(DeviceStateStoreTests test_device_state_store
+    test_device_state_store.cpp)
 
 add_executable(test_api_config test_api_config.cpp ../src/scanner/ApiConfig.cpp)
 target_include_directories(test_api_config PRIVATE ${CMAKE_SOURCE_DIR}/include)

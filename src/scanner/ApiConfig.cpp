@@ -1,6 +1,6 @@
 #include "scanner/ApiConfig.hpp"
+#include "scanner/CliArgs.hpp"
 #include <cstdlib>
-#include <cstring>
 #include <string>
 
 namespace {
@@ -9,14 +9,6 @@ std::string trim_trailing_slashes(std::string url) {
   while (!url.empty() && url.back() == '/')
     url.pop_back();
   return url;
-}
-
-std::string get_option_value(int argc, char *argv[], const char *flag) {
-  for (int i = 1; i < argc - 1; ++i) {
-    if (std::strcmp(argv[i], flag) == 0)
-      return argv[i + 1];
-  }
-  return {};
 }
 
 std::string getenv_string(const char *name) {
@@ -31,13 +23,17 @@ ApiConfig load_api_config(int argc, char *argv[]) {
   config.base_url = trim_trailing_slashes(getenv_string("LAN_API_URL"));
   config.api_token = getenv_string("LAN_API_TOKEN");
 
-  const std::string cli_url = get_option_value(argc, argv, "--api-url");
+  const std::string cli_url = cli_get_option_value(argc, argv, "--api-url");
   if (!cli_url.empty())
     config.base_url = trim_trailing_slashes(cli_url);
 
-  const std::string cli_token = get_option_value(argc, argv, "--api-token");
+  const std::string cli_token = cli_get_option_value(argc, argv, "--api-token");
   if (!cli_token.empty())
     config.api_token = cli_token;
 
   return config;
+}
+
+std::string discovery_events_post_url(const ApiConfig &api) {
+  return api.base_url + "/v1/discovery/events";
 }

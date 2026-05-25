@@ -9,31 +9,15 @@
 #include "event_sink/StdoutEventSink.hpp"
 #include "log/ThreadSafeLogger.hpp"
 #include "scanner/ApiConfig.hpp"
+#include "scanner/CliArgs.hpp"
 #include <csignal>
 #include <cstdlib>
-#include <cstring>
 #include <iostream>
 #include <string>
 
 static volatile std::sig_atomic_t g_shutdown_requested = 0;
 
 static void handle_signal(int /*signum*/) { g_shutdown_requested = 1; }
-
-static bool has_flag(int argc, char *argv[], const char *flag) {
-  for (int i = 1; i < argc; ++i) {
-    if (std::strcmp(argv[i], flag) == 0)
-      return true;
-  }
-  return false;
-}
-
-static std::string get_option_value(int argc, char *argv[], const char *flag) {
-  for (int i = 1; i < argc - 1; ++i) {
-    if (std::strcmp(argv[i], flag) == 0)
-      return argv[i + 1];
-  }
-  return {};
-}
 
 static void print_usage(const char *prog) {
   std::cerr << "Usage: " << prog << " [options]\n"
@@ -55,17 +39,17 @@ static void print_usage(const char *prog) {
 }
 
 static LogLevel parse_log_level(int argc, char *argv[]) {
-  if (has_flag(argc, argv, "-d") || has_flag(argc, argv, "--debug")) {
+  if (cli_has_flag(argc, argv, "-d") || cli_has_flag(argc, argv, "--debug")) {
     return LogLevel::Debug;
   }
-  if (has_flag(argc, argv, "-q") || has_flag(argc, argv, "--quiet")) {
+  if (cli_has_flag(argc, argv, "-q") || cli_has_flag(argc, argv, "--quiet")) {
     return LogLevel::Warn;
   }
   return LogLevel::Info;
 }
 
 int main(int argc, char *argv[]) {
-  if (has_flag(argc, argv, "-h") || has_flag(argc, argv, "--help")) {
+  if (cli_has_flag(argc, argv, "-h") || cli_has_flag(argc, argv, "--help")) {
     print_usage(argv[0]);
     return 0;
   }
@@ -75,26 +59,26 @@ int main(int argc, char *argv[]) {
 
   const LogLevel log_level = parse_log_level(argc, argv);
   const bool wire_verbose =
-      has_flag(argc, argv, "-v") || has_flag(argc, argv, "--verbose");
+      cli_has_flag(argc, argv, "-v") || cli_has_flag(argc, argv, "--verbose");
 
   auto logger = std::make_shared<StdoutLogger>(log_level);
   auto device_store = std::make_shared<DeviceStateStore>();
 
-  std::string iface = get_option_value(argc, argv, "-I");
+  std::string iface = cli_get_option_value(argc, argv, "-I");
   if (iface.empty())
-    iface = get_option_value(argc, argv, "-i");
+    iface = cli_get_option_value(argc, argv, "-i");
   if (iface.empty())
-    iface = get_option_value(argc, argv, "--interface");
+    iface = cli_get_option_value(argc, argv, "--interface");
 
   MdnsProbePlannerConfig probe_config;
   const std::string max_probes =
-      get_option_value(argc, argv, "--max-probes-per-tick");
+      cli_get_option_value(argc, argv, "--max-probes-per-tick");
   if (!max_probes.empty()) {
     probe_config.max_probes_per_tick =
         static_cast<size_t>(std::strtoul(max_probes.c_str(), nullptr, 10));
   }
   const std::string cooldown =
-      get_option_value(argc, argv, "--probe-cooldown-ms");
+      cli_get_option_value(argc, argv, "--probe-cooldown-ms");
   if (!cooldown.empty()) {
     probe_config.probe_cooldown_ms =
         static_cast<uint32_t>(std::strtoul(cooldown.c_str(), nullptr, 10));

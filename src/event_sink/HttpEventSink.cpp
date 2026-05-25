@@ -54,7 +54,7 @@ bool parse_post_url(const std::string &post_url, std::string &scheme,
 
 HttpEventSinkConfig make_http_sink_config(const ApiConfig &api) {
   HttpEventSinkConfig config;
-  config.post_url = api.base_url + "/v1/discovery/events";
+  config.post_url = discovery_events_post_url(api);
   config.api_token = api.api_token;
   return config;
 }

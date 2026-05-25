@@ -167,3 +167,18 @@ def list_alerts(
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_request, exc: HTTPException):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+def main() -> None:
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=False,
+    )
+
+
+if __name__ == "__main__":
+    main()

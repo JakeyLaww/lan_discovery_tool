@@ -3,8 +3,10 @@
 #include <iomanip>
 #include <sstream>
 
-std::string HexDump::format(const std::string &desc,
-                            const std::vector<uint8_t> &data) {
+void HexDump::print(const std::string &desc, const std::vector<uint8_t> &data,
+                    const std::shared_ptr<Logger> &logger) {
+  if (!logger)
+    return;
   std::ostringstream oss;
   oss << "--- " << desc << " (" << std::dec << data.size() << " bytes) ---\n";
   for (size_t i = 0; i < data.size(); i++) {
@@ -18,12 +20,5 @@ std::string HexDump::format(const std::string &desc,
     }
   }
   oss << "\n";
-  return oss.str();
-}
-
-void HexDump::print(const std::string &desc, const std::vector<uint8_t> &data,
-                    const std::shared_ptr<Logger> &logger) {
-  if (!logger)
-    return;
-  logger->debug(format(desc, data));
+  logger->debug(oss.str());
 }
