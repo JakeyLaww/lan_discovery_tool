@@ -3,10 +3,12 @@
 #include <iostream>
 
 void test_lookup_in_table() {
-  const char *table =
-      "IP address       HW type     Flags       HW address            Mask     Device\n"
-      "10.128.79.93     0x1         0x2         aa:bb:cc:dd:ee:ff     *        eth0\n"
-      "10.128.79.99     0x1         0x2         00:00:00:00:00:00     *        eth0\n";
+  const char *table = "IP address       HW type     Flags       HW address     "
+                      "       Mask     Device\n"
+                      "10.128.79.93     0x1         0x2         "
+                      "aa:bb:cc:dd:ee:ff     *        eth0\n"
+                      "10.128.79.99     0x1         0x2         "
+                      "00:00:00:00:00:00     *        eth0\n";
 
   const auto mac = MacResolver::lookup_in_table(table, "10.128.79.93");
   assert(mac.has_value());
